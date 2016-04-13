@@ -14,5 +14,6 @@
     <orderEntry type="library" name="Maven: net.sf.jgcs:jgcs-jgroups:0.8.1" level="project" />
     <orderEntry type="library" name="Maven: org.jgroups:jgroups:3.2.7.Final" level="project" />
     <orderEntry type="library" name="Maven: net.sf.jgcs:jgcs:0.8.1" level="project" />
+    <orderEntry type="library" name="Maven: org.apache.derby:derby:10.12.1.1" level="project" />
   </component>
 </module>
