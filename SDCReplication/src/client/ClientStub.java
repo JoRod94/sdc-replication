@@ -91,9 +91,6 @@ public class ClientStub implements MessageListener{
     public Object onMessage(Message message) {
         Packet received = new Packet(message.getPayload());
 
-
-        //System.out.println("RECEIVED: " + received.toString());
-
         replyLock.lock();
         try {
             Object content = received.getContent();
@@ -113,6 +110,7 @@ public class ClientStub implements MessageListener{
     }
 
     public void sendRequest(String request, Object[] args) throws IOException {
+        msgId++;
         Invocation i = new Invocation(request, args);
         Packet p = new Packet(buildId(), i);
 
@@ -120,8 +118,7 @@ public class ClientStub implements MessageListener{
         message.setPayload(p.getBytes());
         System.out.println("SENDING:" + request);
         data.multicast(message, service, null);
-        System.out.println("Sent a message");
-        msgId++;
+
     }
 
     public String buildId(){

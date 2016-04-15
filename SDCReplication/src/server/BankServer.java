@@ -87,11 +87,11 @@ public class BankServer implements MessageListener{
 
         System.out.println("INTERPRETING: " + receivedContent.toString());
 
-
         // Recovered = Typical workflow
-        if(recovered)
+        if(recovered && !receivedPacket.getId().equals(buildId()) && receivedContent instanceof Invocation)
             handleRequest((Invocation) receivedContent, receivedPacket.getId(), message.getSenderAddress());
-        else{
+
+        if(!recovered){
             // If this server hasn't recovered yet...
             // And if the packet came from this server...
             if(receivedPacket.getId().equals(buildId())){
@@ -197,7 +197,6 @@ public class BankServer implements MessageListener{
 
     @Override
     public Object onMessage(Message message) {
-        System.out.println("Received a message");
         try {
             interpret(message);
         } catch (IOException | ClassNotFoundException e) {

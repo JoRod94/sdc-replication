@@ -19,7 +19,7 @@ public class Client {
         String command;
         while(true){
 
-            System.out.print("> ");
+            System.out.println("Write Parameters: ");
 
             command = scanner.nextLine();
 
