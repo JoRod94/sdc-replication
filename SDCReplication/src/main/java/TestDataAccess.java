@@ -15,7 +15,7 @@ public class TestDataAccess {
 
 
             for(int i = 0; i<15; i++)
-                System.out.println("Generated op_id: "+da.logOperation("OP", 1, 100));
+                System.out.println("Generated op_id: "+da.logOperation("OP", 0,1, 100));
 
             System.out.println(da.getClientAccountsInfo());
             System.out.println(da.getLastClientOperations(1, 5));

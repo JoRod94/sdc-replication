@@ -60,6 +60,7 @@ public class DataAccess {
         dbUpdate("create table OPERATIONS ("
                 + "OP_ID INTEGER NOT NULL GENERATED ALWAYS AS IDENTITY (START WITH 1, INCREMENT BY 1), "
                 + "OP_TYPE VARCHAR(20), "
+                + "MV_AMOUNT INTEGER, "
                 + "CLIENT_ID INTEGER, "
                 + "CURRENT_BALANCE INTEGER, "
                 + "TIMESTAMP TIMESTAMP)");
@@ -69,16 +70,17 @@ public class DataAccess {
         dbUpdate("DROP TABLE " + tablename);
     }
 
-    public int logOperation(String op_type, int client_id, int current_balance){
+    public int logOperation(String op_type, int mv_amount, int client_id, int current_balance){
         int generated_id = 0;
         PreparedStatement stmt = null;
         try {
             stmt = rawDataSource.getConnection().prepareStatement(
-                    "insert into OPERATIONS (OP_TYPE, CLIENT_ID, CURRENT_BALANCE, TIMESTAMP) values (?,?,?,?)", Statement.RETURN_GENERATED_KEYS);
+                    "insert into OPERATIONS (OP_TYPE, MV_AMOUNT, CLIENT_ID, CURRENT_BALANCE, TIMESTAMP) values (?,?,?,?,?)", Statement.RETURN_GENERATED_KEYS);
             stmt.setString(1, op_type);
-            stmt.setInt(2, client_id);
-            stmt.setInt(3, current_balance);
-            stmt.setTimestamp(4, new Timestamp(System.currentTimeMillis()));
+            stmt.setInt(2, mv_amount);
+            stmt.setInt(3, client_id);
+            stmt.setInt(4, current_balance);
+            stmt.setTimestamp(5, new Timestamp(System.currentTimeMillis()));
             stmt.execute();
             generated_id = getGeneratedKey(stmt);
             stmt.close();
@@ -192,6 +194,7 @@ public class DataAccess {
             while (res.next()) {
                 a.append("Id: " + res.getString("OP_ID"))
                         .append("\tType: " + res.getString("OP_TYPE"))
+                        .append("\tAmount: " + res.getString("MV_AMOUNT"))
                         .append("\tClient: " + res.getString("CLIENT_ID"))
                         .append("\tBalance: " + res.getString("CURRENT_BALANCE"))
                         .append("\tTimestamp: " + res.getString("TIMESTAMP").toString()+"\n");
@@ -232,6 +235,7 @@ public class DataAccess {
             while (res.next()) {
                 a.append("Id: " + res.getString("OP_ID"))
                         .append("\tType: " + res.getString("OP_TYPE"))
+                        .append("\tAmount: " + res.getString("MV_AMOUNT"))
                         .append("\tBalance: " + res.getString("CURRENT_BALANCE"))
                         .append("\tTimestamp: " + res.getString("TIMESTAMP").toString()+"\n");
             }
