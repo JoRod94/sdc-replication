@@ -59,7 +59,7 @@ public class BankStub implements Bank, MessageListener {
 
     @Override
     public Integer balance(String account) {
-        return (int) invoke(Invocation.BALANCE, account);
+        return (Integer) invoke(Invocation.BALANCE, account);
     }
 
     @Override

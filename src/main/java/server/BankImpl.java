@@ -2,12 +2,14 @@ package server;
 
 import bank.Bank;
 
+import java.io.Serializable;
+import java.util.Map;
 import java.util.TreeMap;
 
 /**
  * Created by joaorodrigues on 14 Apr 16.
  */
-public class BankImpl implements Bank {
+public class BankImpl implements Bank, Serializable {
     private TreeMap<String, Integer> accounts;
     private int id;
 
@@ -17,8 +19,11 @@ public class BankImpl implements Bank {
     }
 
     public BankImpl(BankImpl b) {
+        System.out.println("RECOVERING STATE...");
         accounts = b.accounts;
         id = b.id;
+        for(Map.Entry<String, Integer> p : accounts.entrySet())
+            System.out.println("- " + p.getKey() + " :: " + p.getValue());
     }
 
     @Override

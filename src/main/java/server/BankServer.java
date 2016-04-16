@@ -130,6 +130,8 @@ public class BankServer implements MessageListener{
         Object content = p.getContent();
 
         System.out.println("INTERPRETING: " + content.toString());
+        System.out.println("MY ID: " + buildPacketId());
+        System.out.println("RECEIVED ID: " + p.getId());
 
         // If we received an expected message
         if(p.getId().equals(buildPacketId())) {
@@ -140,6 +142,13 @@ public class BankServer implements MessageListener{
                 discard = false;
             } else {
                 // If it's by other server, it's a status update
+                // We only update the message id here because otherwise we would never
+                // get the correct reply. Updating it after we received a
+                // correct reply also means we will ignore repeated replies from
+                // multiple servers
+                msgId++;
+                System.out.println("MSG ID " + msgId);
+                System.out.println("STATUS UPDATE");
                 // TODO: cast to correct class
                 recover((BankImpl)content);
             }
@@ -172,6 +181,7 @@ public class BankServer implements MessageListener{
                 break;
             case Invocation.STATE:
                 // TODO: Update this to the recovery params
+                System.out.println("RECEIVED STATE REQUEST");
                 reply = bank;
                 break;
             case Invocation.TRANSFER:
@@ -221,13 +231,13 @@ public class BankServer implements MessageListener{
      * @throws IOException
      */
     public void sendRequest(String request, Object[] args) throws IOException {
+        System.out.println("SENDING: " + request);
         Invocation i = new Invocation(request, args);
         Packet p = new Packet(buildPacketId(), i);
 
         Message message = data.createMessage();
         message.setPayload(p.getBytes());
         data.multicast(message, service, null);
-        msgId++;
     }
 
     /**
@@ -256,7 +266,7 @@ public class BankServer implements MessageListener{
 
     public static void main(String[] args){
         try {
-            new BankServer(Boolean.getBoolean(args[0])).work();
+            new BankServer(Boolean.valueOf(args[0])).work();
         } catch (InterruptedException | IOException e) {
             e.printStackTrace();
         }

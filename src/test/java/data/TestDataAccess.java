@@ -11,7 +11,7 @@ public class TestDataAccess {
     public static void main(String[] args){
         DataAccess da = new DataAccess();
         try {
-            da.initEDBConnection(true, true);
+            da.initEDBConnection("test", true, true);
 
             System.out.println("Generated id: "+da.insertNewAccount("Paulo", 1000));
             System.out.println("Generated id: "+da.insertNewAccount("Peulo", 1000));
