@@ -54,18 +54,17 @@ public class BankStub implements Bank, MessageListener {
 
     @Override
     public String create(int amount) {
-        return (String) invoke(Invocation.CREATE, null);
+        return (String) invoke(Invocation.CREATE, amount);
     }
 
     @Override
     public Integer balance(String account) {
-        return (int) invoke(Invocation.BALANCE, null);
+        return (int) invoke(Invocation.BALANCE, account);
     }
 
     @Override
     public boolean movement(String account, int amount) {
-        boolean b = (Boolean) invoke(Invocation.MOVEMENT,
-                        new String[]{ Integer.toString(amount) } );
+        boolean b = (boolean) invoke(Invocation.MOVEMENT, account, amount);
 
         msgId++;
         return b;
@@ -134,7 +133,7 @@ public class BankStub implements Bank, MessageListener {
      * @param args - list of arguments to be sent
      * @return - received reply from the server
      */
-    private Object invoke(String request, Object[] args) {
+    private Object invoke(String request, Object... args) {
         // Acquire the replyLock.
         // This will allow the stub to sleep until a reply has been received
         replyLock.lock();

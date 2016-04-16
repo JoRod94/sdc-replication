@@ -34,14 +34,25 @@ public class Client {
         Object result = null;
 
         switch(args[0]){
+            case "create":
+                if(args.length == 2)
+                    result = stub.create(Integer.parseInt(args[1]));
+                break;
             case "balance":
-                if(args.length == 1)
-                    result = stub.balance();
+                if(args.length == 2)
+                    result = stub.balance(args[1]);
                 break;
             case "movement":
-                if(args.length == 2)
-                    result = stub.movement(Integer.parseInt(args[1]));
+                if(args.length == 3)
+                    result = stub.movement(args[1], Integer.parseInt(args[2]));
                 break;
+            case "transfer":
+                if(args.length == 4)
+                    result = stub.transfer(args[1], args[2],
+                                            Integer.parseInt(args[3]));
+                break;
+            case "movements":
+                //TODO
             default:
                 result = DEFAULT_REPLY;
                 break;
