@@ -64,10 +64,7 @@ public class BankStub implements Bank, MessageListener {
 
     @Override
     public boolean movement(String account, int amount) {
-        boolean b = (boolean) invoke(Invocation.MOVEMENT, account, amount);
-
-        msgId++;
-        return b;
+        return (boolean) invoke(Invocation.MOVEMENT, account, amount);
     }
 
     @Override
