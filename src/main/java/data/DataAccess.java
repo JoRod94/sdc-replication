@@ -262,7 +262,6 @@ public class DataAccess {
         }
         return -1;
     }
-
     int getCurrentAccountId() {
         int nmr = 1;
         try (
@@ -293,6 +292,7 @@ public class DataAccess {
             return nmr;
         }
         return nmr;
+    }
     private static String buildDBName(String name) {
         return new StringBuilder(DB_PATH)
                             .append(File.pathSeparator)
