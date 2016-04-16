@@ -1,11 +1,13 @@
 package client;
 
+import bank.Bank;
 import net.sf.jgcs.*;
 import net.sf.jgcs.jgroups.JGroupsGroup;
 import net.sf.jgcs.jgroups.JGroupsProtocolFactory;
 import net.sf.jgcs.jgroups.JGroupsService;
 import communication.Packet;
 import communication.Invocation;
+import server.BankServer;
 
 import java.io.IOException;
 import java.util.concurrent.locks.Condition;
@@ -15,76 +17,64 @@ import java.util.concurrent.locks.ReentrantLock;
 /**
  * Created by joaorodrigues on 12 Apr 16.
  */
-public class BankStub implements MessageListener{
-    private String clientId;
+public class BankStub implements Bank, MessageListener {
+    private String stubId;
     private int msgId;
     private DataSession data;
     private Service service;
+
+    // Allows to sleep in a condition, until a reply has been received
     private final Lock replyLock = new ReentrantLock();
     private final Condition replyCondition = replyLock.newCondition();
 
-    // Holds the reply to be shared between the operation and onMessage
+    // Holds the reply to be shared between the invocation and onMessage
     private Object reply;
 
-
-
     public BankStub() throws IOException {
-        clientId = (new java.rmi.dgc.VMID()).toString();
+        stubId = (new java.rmi.dgc.VMID()).toString();
         msgId = 0;
         setUpConnection();
     }
 
-    // Acquires JGroups variables and joins the group
-    public void setUpConnection() throws GroupException {
+    /**
+     * Acquires JGroups variables and joins the group for communication
+     * @throws GroupException
+     */
+    private void setUpConnection() throws GroupException {
         ProtocolFactory pf = new JGroupsProtocolFactory();
-        GroupConfiguration gc = new JGroupsGroup("BankSystem");
+        GroupConfiguration gc = new JGroupsGroup(BankServer.GROUP_NAME);
         service = new JGroupsService();
         Protocol p = pf.createProtocol();
         ControlSession control = p.openControlSession(gc);
         data = p.openDataSession(gc);
 
-
         data.setMessageListener(this);
         control.join();
     }
 
-    public int balance() throws IOException {
-
-        replyLock.lock();
-        try {
-            sendRequest("balance", null);
-            //Waits for a reply
-            replyCondition.await();
-
-            return (int) reply;
-
-        } catch (IOException | InterruptedException e) {
-            e.printStackTrace();
-        } finally{
-            replyLock.unlock();
-        }
-
-        return -1;
-
+    @Override
+    public String create(int amount) {
+        return (String) invoke(Invocation.CREATE, null);
     }
 
-    public boolean movement(int amount) throws IOException {
-        replyLock.lock();
-        try {
-            sendRequest("movement", new String[]{Integer.toString(amount)});
-            //Waits for a reply
-            replyCondition.await();
-            msgId++;
+    @Override
+    public Integer balance(String account) {
+        return (int) invoke(Invocation.BALANCE, null);
+    }
 
-            return (boolean) reply;
-        } catch (IOException | InterruptedException e) {
-            e.printStackTrace();
-        } finally{
-            replyLock.unlock();
-        }
+    @Override
+    public boolean movement(String account, int amount) {
+        boolean b = (Boolean) invoke(Invocation.MOVEMENT,
+                        new String[]{ Integer.toString(amount) } );
 
+        msgId++;
+        return b;
+    }
+
+    @Override
+    public boolean transfer(String origin, String destination, int amount) {
+        // TODO: implement
         return false;
-
     }
 
     @Override
@@ -98,7 +88,7 @@ public class BankStub implements MessageListener{
 
             // If the received message is a reply and the id is the client's...
             // ...continue running the code currently waiting for a reply
-            if(!(content instanceof Invocation) && received.getId().equals(buildId())) {
+            if(!(content instanceof Invocation) && received.getId().equals(buildPacketId())) {
                 reply = content;
                 replyCondition.signal();
             }
@@ -109,19 +99,55 @@ public class BankStub implements MessageListener{
         return null;
     }
 
-    public void sendRequest(String request, Object[] args) throws IOException {
+    /**
+     * Creates a remote invocation and sends it to all the members of the group
+     * @param request - type of invocation to be created. See Invocation class
+     * @param args - list of arguments to be sent
+     * @throws IOException
+     */
+    private void sendRequest(String request, Object[] args) throws IOException {
         msgId++;
         Invocation i = new Invocation(request, args);
-        Packet p = new Packet(buildId(), i);
+        Packet p = new Packet(buildPacketId(), i);
 
         Message message = data.createMessage();
         message.setPayload(p.getBytes());
         System.out.println("SENDING:" + request);
         data.multicast(message, service, null);
-
     }
 
-    public String buildId(){
-        return msgId+"@"+clientId;
+    /**
+     * Builds the expected packet unique id.
+     * The generated id is based on the expected message id
+     * and the unique stub id.
+     * @return expected packet unique id
+     */
+    private String buildPacketId() {
+        return msgId + "@" + stubId;
+    }
+
+    /**
+     * Makes a remote method invocation.
+     * Since the "message received" invocation is a callback, this method
+     * will ensure that the stub sleeps until a reply is received.
+     * @param request - type of invocation to be created. See Invocation class
+     * @param args - list of arguments to be sent
+     * @return - received reply from the server
+     */
+    private Object invoke(String request, Object[] args) {
+        // Acquire the replyLock.
+        // This will allow the stub to sleep until a reply has been received
+        replyLock.lock();
+        try {
+            sendRequest(request, args);
+            replyCondition.await(); // Sleep until a reply has arrived
+        } catch (IOException | InterruptedException e) {
+            e.printStackTrace();
+        } finally{
+            replyLock.unlock();
+        }
+
+        // After sleeping, the reply will be available in the reply variable
+        return reply;
     }
 }

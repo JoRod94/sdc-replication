@@ -1,5 +1,7 @@
 package client;
 
+import bank.Bank;
+
 import java.io.IOException;
 import java.util.Scanner;
 
@@ -7,7 +9,8 @@ import java.util.Scanner;
  * Created by joaorodrigues on 14 Apr 16.
  */
 public class Client {
-    private BankStub stub;
+    private final static String DEFAULT_REPLY = "Invalid Command";
+    private Bank stub;
 
     public Client() throws IOException {
         this.stub = new BankStub();
@@ -15,10 +18,9 @@ public class Client {
 
     public void work() throws IOException, InterruptedException {
         Scanner scanner = new Scanner(System.in);
-
         String command;
-        while(true){
 
+        while(true){
             System.out.println("Write Parameters: ");
 
             command = scanner.nextLine();
@@ -41,12 +43,11 @@ public class Client {
                     result = stub.movement(Integer.parseInt(args[1]));
                 break;
             default:
-                result = "Invalid Command";
+                result = DEFAULT_REPLY;
                 break;
         }
 
         System.out.println(result);
-
     }
 
     public static void main(String[] args){
