@@ -1,6 +1,8 @@
 package server;
 
 import bank.Bank;
+import bank.BankImpl;
+import data.DataAccess;
 import net.sf.jgcs.*;
 import net.sf.jgcs.annotation.PointToPoint;
 import net.sf.jgcs.jgroups.JGroupsGroup;
@@ -9,12 +11,9 @@ import net.sf.jgcs.jgroups.JGroupsService;
 
 import java.io.IOException;
 import java.net.SocketAddress;
-import java.util.Map;
+import java.sql.SQLException;
 import java.util.PriorityQueue;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.Set;
 
 import communication.Invocation;
 import communication.Packet;
@@ -22,8 +21,9 @@ import communication.Packet;
 /**
  * Created by joaorodrigues on 14 Apr 16.
  */
-public class BankServer implements MessageListener{
+public class Server implements MessageListener{
     public static final String GROUP_NAME = "BankSystem";
+    public static final String DB_NAME = "BankData";
 
     private String bankId;
     private Bank bank;
@@ -48,7 +48,7 @@ public class BankServer implements MessageListener{
      * @throws IOException
      * @throws InterruptedException
      */
-    public BankServer(boolean recover) throws IOException, InterruptedException {
+    public Server(boolean recover) throws IOException, InterruptedException, SQLException {
         this.bankId = (new java.rmi.dgc.VMID()).toString();
         this.recover = recover;
 
@@ -56,10 +56,11 @@ public class BankServer implements MessageListener{
         // If we are not, it doesn't really matter the value of discard
         this.discard = recover;
 
-        // We only create the bank if we won't go into recovery.
-        // Otherwise the bank will be received
+
+        // We only create the bank with a brand new database when not recovering
+        // Otherwise the bank will be created based on a status update
         if(!recover)
-            this.bank = new BankImpl();
+            this.bank = new BankImpl(getDataAccess(true));
 
         setUpConnection();
     }
@@ -80,15 +81,28 @@ public class BankServer implements MessageListener{
         control.join();
     }
 
+
+
+    /**
+     * Obtains a DataAccess object, used to manage the bank database
+     * @param buildNew - indicates if a new database will be created
+     * @throws SQLException
+     */
+    public DataAccess getDataAccess( boolean buildNew ) throws SQLException {
+        DataAccess da = new DataAccess();
+        da.initEDBConnection(DB_NAME, false, buildNew);
+        return da;
+    }
+
     /**
      * Sets the bank state to the received value and processes queued messages
-     * @param value - new bank state
+     * @param transactions - set of transactions with ids larger than this bank's id
      * @throws IOException
      * @throws ClassNotFoundException
      */
     // TODO: Change this to the correct class
-    private void recover(BankImpl value) throws IOException, ClassNotFoundException {
-        this.bank = new BankImpl(value);
+    private void recover(Set<BankTransaction> transactions) throws IOException, ClassNotFoundException, SQLException {
+        this.bank = new BankImpl(getDataAccess(false), transactions);
 
         Message queued;
         while (!pendingRequests.isEmpty()) {
@@ -150,7 +164,7 @@ public class BankServer implements MessageListener{
                 System.out.println("MSG ID " + msgId);
                 System.out.println("STATUS UPDATE");
                 // TODO: cast to correct class
-                recover((BankImpl)content);
+                recover((Set<BankTransaction>) content);
             }
         } else {
             // If we received an unexpected message
@@ -182,7 +196,7 @@ public class BankServer implements MessageListener{
             case Invocation.STATE:
                 // TODO: Update this to the recovery params
                 System.out.println("RECEIVED STATE REQUEST");
-                reply = bank;
+                reply = obtainTransactionsAfter((int) args[0]);
                 break;
             case Invocation.TRANSFER:
                 // TODO
@@ -191,6 +205,14 @@ public class BankServer implements MessageListener{
         }
 
         return reply;
+    }
+
+    /**
+     * Returns a set with the transactions made after a certain id
+     * @param id - the most recent id the recovered database
+     */
+    private Set<BankTransaction> obtainTransactionsAfter(int id) {
+        //Todo: Build set of transactions after id
     }
 
     /**
@@ -266,8 +288,8 @@ public class BankServer implements MessageListener{
 
     public static void main(String[] args){
         try {
-            new BankServer(Boolean.valueOf(args[0])).work();
-        } catch (InterruptedException | IOException e) {
+            new Server(Boolean.valueOf(args[0])).work();
+        } catch (InterruptedException | IOException | SQLException e) {
             e.printStackTrace();
         }
     }
