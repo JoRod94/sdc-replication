@@ -4,8 +4,8 @@ import net.sf.jgcs.*;
 import net.sf.jgcs.jgroups.JGroupsGroup;
 import net.sf.jgcs.jgroups.JGroupsProtocolFactory;
 import net.sf.jgcs.jgroups.JGroupsService;
-import support.Packet;
-import support.Invocation;
+import communication.Packet;
+import communication.Invocation;
 
 import java.io.IOException;
 import java.util.concurrent.locks.Condition;
@@ -15,7 +15,7 @@ import java.util.concurrent.locks.ReentrantLock;
 /**
  * Created by joaorodrigues on 12 Apr 16.
  */
-public class ClientStub implements MessageListener{
+public class BankStub implements MessageListener{
     private String clientId;
     private int msgId;
     private DataSession data;
@@ -28,7 +28,7 @@ public class ClientStub implements MessageListener{
 
 
 
-    public ClientStub() throws IOException {
+    public BankStub() throws IOException {
         clientId = (new java.rmi.dgc.VMID()).toString();
         msgId = 0;
         setUpConnection();

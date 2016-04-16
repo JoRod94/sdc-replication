@@ -1,3 +1,7 @@
+package data;
+
+import data.DataAccess;
+
 import java.sql.SQLException;
 
 /**

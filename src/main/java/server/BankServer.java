@@ -14,8 +14,8 @@ import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
-import support.Invocation;
-import support.Packet;
+import communication.Invocation;
+import communication.Packet;
 
 /**
  * Created by joaorodrigues on 14 Apr 16.

@@ -7,10 +7,10 @@ import java.util.Scanner;
  * Created by joaorodrigues on 14 Apr 16.
  */
 public class Client {
-    private ClientStub stub;
+    private BankStub stub;
 
     public Client() throws IOException {
-        this.stub = new ClientStub();
+        this.stub = new BankStub();
     }
 
     public void work() throws IOException, InterruptedException {
