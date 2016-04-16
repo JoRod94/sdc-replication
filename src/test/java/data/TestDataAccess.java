@@ -24,6 +24,9 @@ public class TestDataAccess {
             System.out.println(da.getClientAccountsInfo());
             System.out.println(da.getLastClientOperations(1, 5));
             System.out.println(da.getLastClientOperations("Paulo", 2));
+
+            System.out.println("Current account id:" + da.getCurrentOperationId());
+            System.out.println("Current operation id:" + da.getCurrentAccountId());
         } catch (SQLException e) {
             e.printStackTrace();
         }

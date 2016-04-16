@@ -261,5 +261,35 @@ public class DataAccess {
         return -1;
     }
 
+    int getCurrentAccountId() {
+        int nmr = 1;
+        try (
+                Statement s = rawDataSource.getConnection().createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
+                ResultSet res = s.executeQuery(
+                        "SELECT CLIENT_ID FROM APP.ACCOUNTS")) {
 
+            if (res.last()) {
+                nmr = Integer.parseInt(res.getString("CLIENT_ID"));
+            }
+        } catch (SQLException ex) {
+            return nmr;
+        }
+        return nmr;
+    }
+
+    int getCurrentOperationId(){
+        int nmr = 1;
+        try (
+                Statement s = rawDataSource.getConnection().createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
+                ResultSet res = s.executeQuery(
+                        "SELECT OP_ID FROM APP.OPERATIONS")) {
+
+            if (res.last()) {
+                nmr = Integer.parseInt(res.getString("OP_ID"));
+            }
+        } catch (SQLException ex) {
+            return nmr;
+        }
+        return nmr;
+    }
 }
