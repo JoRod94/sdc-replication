@@ -7,7 +7,7 @@ import net.sf.jgcs.jgroups.JGroupsProtocolFactory;
 import net.sf.jgcs.jgroups.JGroupsService;
 import communication.Packet;
 import communication.Invocation;
-import server.BankServer;
+import server.Server;
 
 import java.io.IOException;
 import java.util.concurrent.locks.Condition;
@@ -42,7 +42,7 @@ public class BankStub implements Bank, MessageListener {
      */
     private void setUpConnection() throws GroupException {
         ProtocolFactory pf = new JGroupsProtocolFactory();
-        GroupConfiguration gc = new JGroupsGroup(BankServer.GROUP_NAME);
+        GroupConfiguration gc = new JGroupsGroup(Server.GROUP_NAME);
         service = new JGroupsService();
         Protocol p = pf.createProtocol();
         ControlSession control = p.openControlSession(gc);
