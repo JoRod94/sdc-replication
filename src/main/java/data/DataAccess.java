@@ -6,15 +6,17 @@ import java.sql.*;
 import org.apache.derby.jdbc.EmbeddedDataSource;
 
 public class DataAccess {
-
     EmbeddedDataSource rawDataSource;
 
-    public void initEDBConnection(boolean drop_tables, boolean create_tables) throws SQLException {
+    private static final String DB_PATH = "./src/main/resources";
+    private static final String DB_FILENAME = "BankData";
 
+    public void initEDBConnection(String name, boolean drop_tables, boolean create_tables) throws SQLException {
+        String dbName = buildDBName(name);
         rawDataSource = new EmbeddedDataSource();
-        rawDataSource.setDatabaseName("./src/main/resources/BankData");
+        rawDataSource.setDatabaseName(dbName);
 
-        File f = new File("./src/main/resources/BankData");
+        File f = new File(dbName);
 
         if (!f.exists()) {
             rawDataSource.setCreateDatabase("create");
@@ -291,5 +293,12 @@ public class DataAccess {
             return nmr;
         }
         return nmr;
+    private static String buildDBName(String name) {
+        return new StringBuilder(DB_PATH)
+                            .append(File.pathSeparator)
+                            .append(name)
+                            .append(File.pathSeparator)
+                            .append(DB_FILENAME)
+                            .toString();
     }
 }
