@@ -13,9 +13,10 @@ public class Invocation implements Serializable {
     public static final String BALANCE  = "balance";
     public static final String MOVEMENT = "movement";
     public static final String TRANSFER = "transfer";
+    public static final String STATE    = "state";
 
-    public String command;
-    public Object[] args;
+    private String command;
+    private Object[] args;
 
     public Invocation(String command, Object[] args) {
         this.command = command;

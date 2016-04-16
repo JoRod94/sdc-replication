@@ -1,5 +1,6 @@
 package server;
 
+import bank.Bank;
 import net.sf.jgcs.*;
 import net.sf.jgcs.annotation.PointToPoint;
 import net.sf.jgcs.jgroups.JGroupsGroup;
@@ -8,6 +9,7 @@ import net.sf.jgcs.jgroups.JGroupsService;
 
 import java.io.IOException;
 import java.net.SocketAddress;
+import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
@@ -21,40 +23,53 @@ import communication.Packet;
  * Created by joaorodrigues on 14 Apr 16.
  */
 public class BankServer implements MessageListener{
+    public static final String GROUP_NAME = "BankSystem";
 
-    private String serverId;
+    private String bankId;
     private Bank bank;
-    private boolean recovered;
-    private boolean waitingRecoveryReply;
     private int msgId;
 
     // Pending Requests during recovery
     private final PriorityQueue<Message> pendingRequests = new PriorityQueue<>();
+    // Indicates whether or not we should ask for the group for the current state
+    private boolean recover;
+    // Indicates whether or not we are discarding messages
+    private boolean discard;
 
     // JGroups Variables
     private DataSession data;
     private Service service;
 
-    // Condition control for replies
-    private final Lock replyLock = new ReentrantLock();
-    private final Condition replyCondition = replyLock.newCondition();
+    /**
+     * Creates a new BankServer
+     * If no other BankServer has been created, false should be passed
+     * as the argument. Otherwise, the server will enter recovery mode.
+     * @param recover - boolean indicating the need for a recovery.
+     * @throws IOException
+     * @throws InterruptedException
+     */
+    public BankServer(boolean recover) throws IOException, InterruptedException {
+        this.bankId = (new java.rmi.dgc.VMID()).toString();
+        this.recover = recover;
 
+        // If we are in recovery, we must start by discarding
+        // If we are not, it doesn't really matter the value of discard
+        this.discard = recover;
 
-
-    public BankServer(Bank bank) throws IOException, InterruptedException {
-        this.serverId = (new java.rmi.dgc.VMID()).toString();
-        this.bank = bank;
+        // We only create the bank if we won't go into recovery.
+        // Otherwise the bank will be received
+        if(!recover)
+            this.bank = new BankImpl();
 
         setUpConnection();
-
-        recovered = false;
-        waitingRecoveryReply = false;
     }
 
-    // Acquires JGroups variables and joins the group
+    /**
+     * Acquires JGroups variables and joins the group for communication
+     */
     public void setUpConnection() throws GroupException {
         ProtocolFactory pf = new JGroupsProtocolFactory();
-        GroupConfiguration gc = new JGroupsGroup("BankSystem");
+        GroupConfiguration gc = new JGroupsGroup(GROUP_NAME);
         service = new JGroupsService();
         Protocol p = pf.createProtocol();
         ControlSession control = p.openControlSession(gc);
@@ -65,8 +80,33 @@ public class BankServer implements MessageListener{
         control.join();
     }
 
+    /**
+     * Sets the bank state to the received value and processes queued messages
+     * @param value - new bank state
+     * @throws IOException
+     * @throws ClassNotFoundException
+     */
+    // TODO: Change this to the correct class
+    private void recover(BankImpl value) throws IOException, ClassNotFoundException {
+        this.bank = new BankImpl(value);
+
+        Message queued;
+        while (!pendingRequests.isEmpty()) {
+            queued = pendingRequests.remove();
+            handle(queued);
+        }
+
+        recover = false;
+    }
+
+    /**
+     * Runs the server
+     * @throws IOException
+     * @throws InterruptedException
+     */
     public void work() throws IOException, InterruptedException {
-        recover();
+        if(recover)
+            sendRequest(Invocation.STATE, null);
 
         // Waits in a non-blocking manner forever
         while(true){
@@ -78,112 +118,111 @@ public class BankServer implements MessageListener{
         }
     }
 
+    /**
+     * Handle a message in recovery mode.
+     * Decides if we should update our state, save the message or discard it
+     * @param m - received message
+     * @throws IOException
+     * @throws ClassNotFoundException
+     */
+    private void handleRecovery(Message m) throws IOException, ClassNotFoundException {
+        Packet p = new Packet(m.getPayload());
+        Object content = p.getContent();
 
-    private void interpret(Message message) throws IOException, ClassNotFoundException {
+        System.out.println("INTERPRETING: " + content.toString());
 
-
-        Packet receivedPacket = new Packet(message.getPayload());
-        Object receivedContent = receivedPacket.getContent();
-
-        System.out.println("INTERPRETING: " + receivedContent.toString());
-
-        // Recovered = Typical workflow
-        if(recovered && !receivedPacket.getId().equals(buildId()) && receivedContent instanceof Invocation)
-            handleRequest((Invocation) receivedContent, receivedPacket.getId(), message.getSenderAddress());
-
-        if(!recovered){
-            // If this server hasn't recovered yet...
-            // And if the packet came from this server...
-            if(receivedPacket.getId().equals(buildId())){
-
-                // If the packet is a request, the packet indicates that the recovery requests have been sent...
-                // ...and the server now waits for recovery replies
-                if(receivedContent instanceof Invocation)
-                    waitingRecoveryReply = true;
-                else{
-                    // Otherwise, it's a recovery reply, a status update
-                    handleRecoveryReply(receivedContent);
-                    waitingRecoveryReply = false;
-                    handlePendingRequests();
-                }
+        // If we received an expected message
+        if(p.getId().equals(buildPacketId())) {
+            // It's either our own first message or a status update
+            // If it's our own
+            if(content instanceof Invocation) {
+                // We stop discarding messages and start saving them
+                discard = false;
+            } else {
+                // If it's by other server, it's a status update
+                // TODO: cast to correct class
+                recover((BankImpl)content);
             }
-            else if(waitingRecoveryReply) {
-                // If it's an external request, and the server is waiting for a status update...
-                // ...add to pending requests, as these will have to be handled after the update
-                pendingRequests.add(message);
-            }
+        } else {
+            // If we received an unexpected message
+            // We either save it or discard it
+            if(!discard)
+                pendingRequests.add(m);
         }
     }
 
-    public void handleRequest(Invocation invocation, String packetId, SocketAddress senderAddress) throws IOException {
-        Message sent = data.createMessage();
+    /**
+     * Makes the interface between a remote invocation and the underlying bank
+     * @param command - command to be invoked
+     * @param args - command arguments
+     * @return
+     */
+    private Object handleInvocation(String command, Object[] args) {
+        Object reply;
 
-        Object[] args = invocation.getArgs();
-        Packet reply = null;
-
-        switch(invocation.getCommand()){
-            case "balance":
-                //TODO: Insert correct bank call
-                reply = new Packet(packetId, 1337);
-                //reply = new Packet(packetId,bank.balance());
+        switch(command) {
+            case Invocation.CREATE:
+                reply = bank.create((Integer)args[0]);
                 break;
-            case "movement":
-                //TODO: Insert correct bank call
-                //reply = new Packet(packetId, bank.movement(args[0]));
+            case Invocation.BALANCE:
+                reply = bank.balance((String)args[0]);
                 break;
+            case Invocation.MOVEMENT:
+                reply = bank.movement((String)args[0], (int)args[1]);
+                break;
+            case Invocation.STATE:
+                // TODO: Update this to the recovery params
+                reply = bank;
+                break;
+            case Invocation.TRANSFER:
+                // TODO
+            default:
+                reply = null;
         }
 
-        //Send the reply if it was created
-        if(reply != null) {
-            sent.setPayload(reply.getBytes());
-            data.multicast(sent, service, new PointToPoint(senderAddress));
+        return reply;
+    }
+
+    /**
+     * Handles a message when not in recovery
+     * @param m - Received message
+     */
+    private void handle(Message m) throws IOException {
+        Packet p = new Packet(m.getPayload());
+        Object o = p.getContent();
+
+        // This method is only invoked when we are not in recovery
+        // So, we only handle invocations.
+        // This prevents that we process repeated replies
+        // for our recovery request
+        if(o instanceof Invocation){
+            Invocation i = (Invocation)o;
+            Object attachment = handleInvocation(i.getCommand(), i.getArgs());
+            reply(new Packet(p.getId(), attachment), m.getSenderAddress());
         }
     }
 
-    public void handlePendingRequests() throws IOException, ClassNotFoundException {
-        Message queued;
-        while (!pendingRequests.isEmpty()) {
-            queued = pendingRequests.remove();
-            interpret(queued);
-        }
+    /**
+     * Sends a packet directly to a given destination
+     * @param p - Packet to be sent
+     * @param destination - Address of the destination
+     * @throws IOException
+     */
+    private void reply(Packet p, SocketAddress destination) throws IOException {
+        Message m = data.createMessage();
+        m.setPayload(p.getBytes());
+        data.multicast(m, service, new PointToPoint(destination));
     }
 
-    public void handleRecoveryReply(Object reply){
-        replyLock.lock();
-        try {
-
-            // TODO: Recovery Operations
-
-            replyCondition.signal();
-        }finally{
-            replyLock.unlock();
-        }
-    }
-
-    public void recover() throws IOException, InterruptedException {
-        replyLock.lock();
-        try {
-
-            //TODO: Add correct recover operations
-            sendRequest("balance", null);
-
-            System.out.println("WAITING FOR RECOVERY REPLY...");
-
-            // Waits for onMessage to continue the execution
-            // If there's a timeout, it probably means the server is alone
-            replyCondition.await(5, TimeUnit.SECONDS);
-            System.out.println("WAITING FINISHED");
-
-            recovered = true;
-        }finally {
-            replyLock.unlock();
-        }
-
-    }
-
+    /**
+     * Creates a remote invocation and sends it to all the members of the group
+     * @param request - type of invocation to be created. See Invocation class
+     * @param args - list of arguments to be sent
+     * @throws IOException
+     */
     public void sendRequest(String request, Object[] args) throws IOException {
         Invocation i = new Invocation(request, args);
-        Packet p = new Packet(buildId(), i);
+        Packet p = new Packet(buildPacketId(), i);
 
         Message message = data.createMessage();
         message.setPayload(p.getBytes());
@@ -191,14 +230,23 @@ public class BankServer implements MessageListener{
         msgId++;
     }
 
-    public String buildId(){
-        return msgId+"@"+serverId;
+    /**
+     * Builds the expected packet unique id.
+     * The generated id is based on the expected message id
+     * and the unique stub id.
+     * @return expected packet unique id
+     */
+    public String buildPacketId(){
+        return msgId + "@" + bankId;
     }
 
     @Override
     public Object onMessage(Message message) {
         try {
-            interpret(message);
+            if(recover)
+                handleRecovery(message);
+            else
+                handle(message);
         } catch (IOException | ClassNotFoundException e) {
             e.printStackTrace();
         }
@@ -206,14 +254,11 @@ public class BankServer implements MessageListener{
         return null;
     }
 
-
     public static void main(String[] args){
         try {
-            (new BankServer( new Bank() )).work();
+            new BankServer(Boolean.getBoolean(args[0])).work();
         } catch (InterruptedException | IOException e) {
             e.printStackTrace();
         }
     }
-
-
 }
