@@ -2,6 +2,7 @@ package server;
 
 import bank.Bank;
 import bank.BankImpl;
+import bank.BankOperation;
 import data.DataAccess;
 import net.sf.jgcs.*;
 import net.sf.jgcs.annotation.PointToPoint;
@@ -12,6 +13,7 @@ import net.sf.jgcs.jgroups.JGroupsService;
 import java.io.IOException;
 import java.net.SocketAddress;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.PriorityQueue;
 import java.util.Set;
 
@@ -101,7 +103,7 @@ public class Server implements MessageListener{
      * @throws ClassNotFoundException
      */
     // TODO: Change this to the correct class
-    private void recover(Set<BankTransaction> transactions) throws IOException, ClassNotFoundException, SQLException {
+    private void recover(ArrayList<BankOperation> transactions) throws IOException, ClassNotFoundException, SQLException {
         this.bank = new BankImpl(getDataAccess(false), transactions);
 
         Message queued;
@@ -139,7 +141,7 @@ public class Server implements MessageListener{
      * @throws IOException
      * @throws ClassNotFoundException
      */
-    private void handleRecovery(Message m) throws IOException, ClassNotFoundException {
+    private void handleRecovery(Message m) throws IOException, ClassNotFoundException, SQLException {
         Packet p = new Packet(m.getPayload());
         Object content = p.getContent();
 
@@ -164,7 +166,7 @@ public class Server implements MessageListener{
                 System.out.println("MSG ID " + msgId);
                 System.out.println("STATUS UPDATE");
                 // TODO: cast to correct class
-                recover((Set<BankTransaction>) content);
+                recover((ArrayList<BankOperation>) content);
             }
         } else {
             // If we received an unexpected message
@@ -196,7 +198,7 @@ public class Server implements MessageListener{
             case Invocation.STATE:
                 // TODO: Update this to the recovery params
                 System.out.println("RECEIVED STATE REQUEST");
-                reply = obtainTransactionsAfter((int) args[0]);
+                reply = obtainOperationsAfter((int) args[0]);
                 break;
             case Invocation.TRANSFER:
                 // TODO
@@ -211,7 +213,7 @@ public class Server implements MessageListener{
      * Returns a set with the transactions made after a certain id
      * @param id - the most recent id the recovered database
      */
-    private Set<BankTransaction> obtainTransactionsAfter(int id) {
+    private ArrayList<BankOperation> obtainOperationsAfter(int id) {
         //Todo: Build set of transactions after id
     }
 
@@ -279,7 +281,7 @@ public class Server implements MessageListener{
                 handleRecovery(message);
             else
                 handle(message);
-        } catch (IOException | ClassNotFoundException e) {
+        } catch (IOException | ClassNotFoundException | SQLException e) {
             e.printStackTrace();
         }
 
