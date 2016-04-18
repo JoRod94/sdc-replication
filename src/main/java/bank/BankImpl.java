@@ -3,8 +3,8 @@ package bank;
 import data.DataAccess;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Map;
-import java.util.Set;
 import java.util.TreeMap;
 
 /**
@@ -13,6 +13,7 @@ import java.util.TreeMap;
 public class BankImpl implements Bank, Serializable {
     private TreeMap<String, Integer> accounts;
     private int id;
+    private DataAccess database;
 
     public BankImpl() {
         accounts = new TreeMap<>();
@@ -29,12 +30,16 @@ public class BankImpl implements Bank, Serializable {
 
 
     //Used when recovering
-    public BankImpl(DataAccess transactionList, Set<BankTransaction> transactions) {
+    public BankImpl(DataAccess dataAccess, ArrayList<BankOperation> operations) {
+        database = dataAccess;
+        for(BankOperation operation: operations)
+            database.insertOperation(operation);
         //Aplicar todas as transaçoes, estas sao a partir do ID mais recente.
     }
 
     //Used when not recovering
-    public BankImpl(DataAccess transactionList) {
+    public BankImpl(DataAccess dataAccess) {
+        database = dataAccess;
 
     }
 
