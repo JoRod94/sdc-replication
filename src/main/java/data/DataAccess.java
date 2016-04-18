@@ -2,14 +2,17 @@ package data;
 
 import java.io.File;
 import java.sql.*;
+import java.util.List;
 
 import org.apache.derby.jdbc.EmbeddedDataSource;
 
+//atualizar balance das contas ao fazer operation
 public class DataAccess {
     EmbeddedDataSource rawDataSource;
 
     private static final String DB_PATH = "./src/main/resources";
     private static final String DB_FILENAME = "BankData";
+    private static final String[] OP_TYPES = {"movement", "transfer", "create"};
 
     public void initEDBConnection(String name, boolean drop_tables, boolean create_tables) throws SQLException {
         String dbName = buildDBName(name);
@@ -28,10 +31,12 @@ public class DataAccess {
 
         if(drop_tables){
             dropTable("ACCOUNTS");
+            dropTable("OPERATION_TYPE");
             dropTable("OPERATIONS");
         }
         if(create_tables){
             createAccountsTable();
+            createOperationTypeTable();
             createOperationsTable();
         }
     }
@@ -63,11 +68,29 @@ public class DataAccess {
     public void createOperationsTable(){
         dbUpdate("create table OPERATIONS ("
                 + "OP_ID INTEGER NOT NULL GENERATED ALWAYS AS IDENTITY (START WITH 1, INCREMENT BY 1), "
-                + "OP_TYPE VARCHAR(20), "
+                + "OP_TYPE INTEGER, "
                 + "MV_AMOUNT INTEGER, "
-                + "CLIENT_ID INTEGER, "
-                + "CURRENT_BALANCE INTEGER, "
-                + "TIMESTAMP TIMESTAMP)");
+                + "FROM_CLIENT_ID INTEGER, "
+                + "TO_CLIENT_ID INTEGER, "
+                + "FROM_CURRENT_BALANCE INTEGER, "
+                + "TO_CURRENT_BALANCE INTEGER, "
+                + "TIMESTAMP TIMESTAMP, "
+                + "CONSTRAINT OP_TYPE_REF FOREIGN KEY (OP_TYPE) REFERENCES OPERATION_TYPE(OP_TYPE), "
+                + "CONSTRAINT FROM_CLIENT_ID_REF FOREIGN KEY (FROM_CLIENT_ID) REFERENCES ACCOUNTS(CLIENT_ID), "
+                + "CONSTRAINT TO_CLIENT_ID_REF FOREIGN KEY (CLIENT_ID) REFERENCES ACCOUNTS(CLIENT_ID))");
+    }
+
+    public void createOperationTypeTable(){
+        dbUpdate("create table OPERATION_TYPE ("
+                + "OP_TYPE INTEGER NOT NULL GENERATED ALWAYS AS IDENTITY (START WITH 1, INCREMENT BY 1), "
+                + "OP_DESIGNATION VARCHAR(20))");
+
+        populateOperationType();
+    }
+
+    public void populateOperationType(){
+        for(String ot : OP_TYPES)
+            dbUpdate("insert into OPERATION_TYPE (OP_DESIGNATION) values (\""+ot+"\")");
     }
 
     public void dropTable(String tablename) {
@@ -300,5 +323,10 @@ public class DataAccess {
                             .append(File.pathSeparator)
                             .append(DB_FILENAME)
                             .toString();
+    }
+
+    public List<Object> returnOperationsFromN(int n_id){
+
+        return null;
     }
 }
