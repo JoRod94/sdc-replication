@@ -3,6 +3,8 @@ package server;
 import bank.Bank;
 import bank.BankImpl;
 import bank.BankOperation;
+import communication.Invocation;
+import communication.Packet;
 import data.DataAccess;
 import net.sf.jgcs.*;
 import net.sf.jgcs.annotation.PointToPoint;
@@ -14,11 +16,8 @@ import java.io.IOException;
 import java.net.SocketAddress;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.PriorityQueue;
-import java.util.Set;
-
-import communication.Invocation;
-import communication.Packet;
 
 /**
  * Created by joaorodrigues on 14 Apr 16.
@@ -196,9 +195,8 @@ public class Server implements MessageListener{
                 reply = bank.movement((String)args[0], (int)args[1]);
                 break;
             case Invocation.STATE:
-                // TODO: Update this to the recovery params
                 System.out.println("RECEIVED STATE REQUEST");
-                reply = obtainOperationsAfter((int) args[0]);
+                reply = getOperationsAfter((int) args[0]);
                 break;
             case Invocation.TRANSFER:
                 // TODO
@@ -209,13 +207,6 @@ public class Server implements MessageListener{
         return reply;
     }
 
-    /**
-     * Returns a set with the transactions made after a certain id
-     * @param id - the most recent id the recovered database
-     */
-    private ArrayList<BankOperation> obtainOperationsAfter(int id) {
-        //Todo: Build set of transactions after id
-    }
 
     /**
      * Handles a message when not in recovery
@@ -263,6 +254,11 @@ public class Server implements MessageListener{
         message.setPayload(p.getBytes());
         data.multicast(message, service, null);
     }
+
+    private List<BankOperation> getOperationsAfter(int id) {
+        return database.getOperationsAfter(id);
+    }
+
 
     /**
      * Builds the expected packet unique id.

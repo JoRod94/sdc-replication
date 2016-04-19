@@ -3,7 +3,7 @@ package bank;
 import data.DataAccess;
 
 import java.io.Serializable;
-import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -20,6 +20,7 @@ public class BankImpl implements Bank, Serializable {
         id = 0;
     }
 
+    //Deprecated constructor
     public BankImpl(BankImpl b) {
         System.out.println("RECOVERING STATE...");
         accounts = b.accounts;
@@ -29,12 +30,11 @@ public class BankImpl implements Bank, Serializable {
     }
 
 
-    //Used when recovering
-    public BankImpl(DataAccess dataAccess, ArrayList<BankOperation> operations) {
+    //Used when recovering, applies the received operations to the database
+    public BankImpl(DataAccess dataAccess, List<BankOperation> operations) {
         database = dataAccess;
         for(BankOperation operation: operations)
-            database.insertOperation(operation);
-        //Aplicar todas as transaçoes, estas sao a partir do ID mais recente.
+            database.recoverOperation(operation);
     }
 
     //Used when not recovering
@@ -45,29 +45,33 @@ public class BankImpl implements Bank, Serializable {
 
     @Override
     public String create(int amount) {
-        String accountId = Integer.toString(++id);
-        accounts.put(accountId, amount);
-        return accountId;
+        return Integer.toString(database.insertNewAccount(0));
     }
 
     @Override
     public Integer balance(String account) {
-        return accounts.get(account);
+        return database.getClientBalance(account);
     }
 
     @Override
     public boolean movement(String account, int amount) {
-        Integer balance = accounts.get(account);
+        Integer balance = database.getClientBalance(Integer.parseInt(account));
 
         if(balance == null || (amount < 0 && amount + balance < 0))
             return false;
 
-        accounts.put(account, amount + balance);
+        database.makeMovement(Integer.parseInt(account), amount);
         return true;
     }
 
     @Override
     public boolean transfer(String origin, String destination, int amount) {
-        return movement(origin, amount) && movement(destination, amount);
+        Integer balanceFrom = database.getClientBalance(origin);
+
+        if(balanceFrom == null || (amount < 0 && amount + balanceFrom < 0))
+            return false;
+
+
+        return makeTransfer(Integer.parseInt(origin), Integer.parseInt(destination), amount);
     }
 }
