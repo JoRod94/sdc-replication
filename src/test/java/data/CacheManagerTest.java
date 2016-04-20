@@ -31,5 +31,7 @@ public class CacheManagerTest implements Cacheable {
         }
 
         Assert.assertEquals(null, cache.get(Integer.toString(1)));
+        Assert.assertNotNull(cache.get(Integer.toString(2)));
+        Assert.assertNotNull(cache.get(Integer.toString(20)));
     }
 }
