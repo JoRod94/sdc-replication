@@ -6,13 +6,11 @@ package bank;
 public class MovementOperation extends BankOperation {
     private int amount;
     private int finalBalance;
-    private String account;
 
     public MovementOperation(int id, int amount, int finalBalance, String account) {
-        super(id);
+        super(id, account);
         this.amount = amount;
         this.finalBalance = finalBalance;
-        this.account = account;
     }
 
     public int getAmount() {
@@ -23,7 +21,4 @@ public class MovementOperation extends BankOperation {
         return finalBalance;
     }
 
-    public String getAccount() {
-        return account;
-    }
 }

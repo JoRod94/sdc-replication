@@ -8,17 +8,14 @@ import java.util.List;
 import bank.*;
 import org.apache.derby.jdbc.EmbeddedDataSource;
 
-//meter a inserir log depois de fazer insertAccount
-//nao é preciso fazer cuidado de balances
-//makeMovement, makeTransfer, makeBalance
-//talvez meter enum na invocation
-//trocar client_id por account_id
+// talvez meter enum na invocation
 public class DataAccess {
     EmbeddedDataSource rawDataSource;
 
     private static final String DB_PATH = "./src/main/resources";
     private static final String DB_FILENAME = "BankData";
     public enum OP_TYPES {MOVEMENT, TRANSFER, CREATE};
+    private int currentAccountId, currentOperationId;
 
     public void initEDBConnection(String name, boolean drop_tables, boolean create_tables) throws SQLException {
         String dbName = buildDBName(name);
@@ -36,15 +33,19 @@ public class DataAccess {
         }
 
         if(drop_tables){
+            dropTable("OPERATIONS");
             dropTable("ACCOUNTS");
             dropTable("OPERATION_TYPE");
-            dropTable("OPERATIONS");
+
         }
         if(create_tables){
             createAccountsTable();
             createOperationTypeTable();
             createOperationsTable();
         }
+
+        refreshCurrentAccountId();
+        refreshCurrentOperationId();
     }
 
     public void dbUpdate(String query) {
@@ -65,29 +66,29 @@ public class DataAccess {
 
     public void createAccountsTable(){
         dbUpdate("create table ACCOUNTS ("
-                + "CLIENT_ID INTEGER NOT NULL GENERATED ALWAYS AS IDENTITY (START WITH 1, INCREMENT BY 1), "
+                + "ACCOUNT_ID INTEGER PRIMARY KEY, "
                 + "BALANCE INTEGER,"
                 + "TIMESTAMP TIMESTAMP)");
     }
 
     public void createOperationsTable(){
         dbUpdate("create table OPERATIONS ("
-                + "OP_ID INTEGER NOT NULL GENERATED ALWAYS AS IDENTITY (START WITH 1, INCREMENT BY 1), "
-                + "OP_TYPE INTEGER, "
+                + "OP_ID INTEGER PRIMARY KEY, "
+                + "OP_TYPE INTEGER NOT NULL, "
                 + "MV_AMOUNT INTEGER, "
-                + "FROM_CLIENT_ID INTEGER, "
-                + "TO_CLIENT_ID INTEGER, "
+                + "FROM_ACCOUNT_ID INTEGER, "
+                + "TO_ACCOUNT_ID INTEGER, "
                 + "FROM_CURRENT_BALANCE INTEGER, "
                 + "TO_CURRENT_BALANCE INTEGER, "
                 + "TIMESTAMP TIMESTAMP, "
                 + "CONSTRAINT OP_TYPE_REF FOREIGN KEY (OP_TYPE) REFERENCES OPERATION_TYPE(OP_TYPE), "
-                + "CONSTRAINT FROM_CLIENT_ID_REF FOREIGN KEY (FROM_CLIENT_ID) REFERENCES ACCOUNTS(CLIENT_ID), "
-                + "CONSTRAINT TO_CLIENT_ID_REF FOREIGN KEY (CLIENT_ID) REFERENCES ACCOUNTS(CLIENT_ID))");
+                + "CONSTRAINT FROM_ACCOUNT_ID_REF FOREIGN KEY (FROM_ACCOUNT_ID) REFERENCES ACCOUNTS(ACCOUNT_ID), "
+                + "CONSTRAINT TO_ACCOUNT_ID_REF FOREIGN KEY (TO_ACCOUNT_ID) REFERENCES ACCOUNTS(ACCOUNT_ID))");
     }
 
     public void createOperationTypeTable(){
         dbUpdate("create table OPERATION_TYPE ("
-                + "OP_TYPE INTEGER NOT NULL GENERATED ALWAYS AS IDENTITY (START WITH 1, INCREMENT BY 1), "
+                + "OP_TYPE INTEGER PRIMARY KEY, "
                 + "OP_DESIGNATION VARCHAR(20))");
 
         populateOperationType();
@@ -95,76 +96,72 @@ public class DataAccess {
 
     public void populateOperationType(){
         for(OP_TYPES ot : OP_TYPES.values())
-            dbUpdate("insert into OPERATION_TYPE (OP_DESIGNATION) values (\""+ot.name()+"\")");
+            dbUpdate("insert into OPERATION_TYPE (OP_TYPE, OP_DESIGNATION) values " +
+                    "("+(ot.ordinal()+1)+",\'"+ot.name()+"\')");
     }
 
     public void dropTable(String tablename) {
         dbUpdate("DROP TABLE " + tablename);
     }
 
-    //discutir se é apropriado receber o saldo final já no recovery
-    public void recoverOperation(BankOperation bo, int account_id){
-
-        if(bo instanceof CreateOperation) insertNewAccount();
-        else if(bo instanceof MovementOperation){
-            MovementOperation mo = (MovementOperation) bo;
-            makeMovement(mo.getAmount(), /*mo.getAccountId()*/account_id, mo.getFinalBalance());
-        }
-        else if(bo instanceof TransferOperation) {
-            TransferOperation to = (TransferOperation) bo;
-            makeTransfer(to.getAmount(), Integer.parseInt(to.getAccountFrom()), Integer.parseInt(to.getAccountTo()),
-                    to.getFinalBalanceFrom(), to.getFinalBalanceTo());
-        }
-    }
-
-    public int makeMovement(int mv_amount, int account_id, int final_balance){
+    public int makeMovement(int op_id, int mv_amount, int account_id, int final_balance, boolean recovery){
         int generated_id = 0;
 
         try {
             PreparedStatement stmt = rawDataSource.getConnection().prepareStatement(
-                    "insert into OPERATIONS (OP_TYPE, MV_AMOUNT, FORM_CLIENT_ID, FROM_CURRENT_BALANCE, TIMESTAMP) " +
-                            "values (?,?,?,?,?)", Statement.RETURN_GENERATED_KEYS);
-            stmt.setInt(1, OP_TYPES.valueOf("MOVEMENT").ordinal()); //talvez tenha de fazer + 1
-            stmt.setInt(2, mv_amount);
-            stmt.setInt(3, account_id);
-            stmt.setInt(4, final_balance);
-            stmt.setTimestamp(5, new Timestamp(System.currentTimeMillis()));
+                    "insert into OPERATIONS (OP_ID, OP_TYPE, MV_AMOUNT, FROM_ACCOUNT_ID, FROM_CURRENT_BALANCE, TIMESTAMP) " +
+                            "values (?,?,?,?,?,?)");
+            if(recovery) {
+                stmt.setInt(1, generated_id = op_id);
+            } else {
+                stmt.setInt(1, generated_id = currentOperationId++);
+            }
+            stmt.setInt(2, OP_TYPES.valueOf("MOVEMENT").ordinal()+1);
+            stmt.setInt(3, mv_amount);
+            stmt.setInt(4, account_id);
+            stmt.setInt(5, final_balance);
+            stmt.setTimestamp(6, new Timestamp(System.currentTimeMillis()));
             stmt.execute();
-            generated_id = getGeneratedKey(stmt);
             stmt.close();
         } catch (SQLException e) {
             e.printStackTrace();
         }
 
-        updateBalance(account_id, final_balance);
+        if(!recovery) updateBalance(account_id, final_balance);
 
         return generated_id;
     }
 
-    public int makeTransfer(int tr_amount, int from_account, int to_account, int from_final_balance,
-                            int to_final_balance){
+    public int makeTransfer(int op_id, int tr_amount, int from_account, int to_account, int from_final_balance,
+                            int to_final_balance, boolean recovery){
         int generated_id = 0;
 
         try {
             PreparedStatement stmt = rawDataSource.getConnection().prepareStatement(
-                    "insert into OPERATIONS (OP_TYPE, MV_AMOUNT, FORM_CLIENT_ID, TO_CLIENT_ID, FROM_CURRENT_BALANCE, " +
-                            "TO_CURRENT_BALANCE, TIMESTAMP) values (?,?,?,?,?,?,?)", Statement.RETURN_GENERATED_KEYS);
-            stmt.setInt(1, OP_TYPES.valueOf("TRANSFER").ordinal()); //talvez tenha de fazer + 1
-            stmt.setInt(2, tr_amount);
-            stmt.setInt(3, from_account);
-            stmt.setInt(4, to_account);
-            stmt.setInt(5, from_final_balance);
-            stmt.setInt(6, to_final_balance);
-            stmt.setTimestamp(5, new Timestamp(System.currentTimeMillis()));
+                    "insert into OPERATIONS (OP_ID, OP_TYPE, MV_AMOUNT, FROM_ACCOUNT_ID, TO_ACCOUNT_ID, FROM_CURRENT_BALANCE, " +
+                            "TO_CURRENT_BALANCE, TIMESTAMP) values (?,?,?,?,?,?,?,?)");
+            if(recovery){
+                stmt.setInt(1, generated_id = op_id);
+            } else {
+                stmt.setInt(1, generated_id = currentOperationId++);
+            }
+            stmt.setInt(2, OP_TYPES.valueOf("TRANSFER").ordinal()+1);
+            stmt.setInt(3, tr_amount);
+            stmt.setInt(4, from_account);
+            stmt.setInt(5, to_account);
+            stmt.setInt(6, from_final_balance);
+            stmt.setInt(7, to_final_balance);
+            stmt.setTimestamp(8, new Timestamp(System.currentTimeMillis()));
             stmt.execute();
-            generated_id = getGeneratedKey(stmt);
             stmt.close();
         } catch (SQLException e) {
             e.printStackTrace();
         }
 
-        updateBalance(from_account, from_final_balance);
-        updateBalance(to_account, to_final_balance);
+        if(!recovery) {
+            updateBalance(from_account, from_final_balance);
+            updateBalance(to_account, to_final_balance);
+        }
 
         return generated_id;
     }
@@ -174,13 +171,14 @@ public class DataAccess {
 
         try {
             PreparedStatement stmt = rawDataSource.getConnection().prepareStatement(
-                    "insert into OPERATIONS (OP_TYPE, CLIENT_ID, CURRENT_BALANCE, TIMESTAMP) values (?,?,?,?)", Statement.RETURN_GENERATED_KEYS);
-            stmt.setInt(1, OP_TYPES.valueOf("CREATE").ordinal());
-            stmt.setInt(2, account_id);
-            stmt.setInt(3, current_balance);
-            stmt.setTimestamp(4, new Timestamp(System.currentTimeMillis()));
+                    "insert into OPERATIONS (OP_ID, OP_TYPE, FROM_ACCOUNT_ID, FROM_CURRENT_BALANCE, TIMESTAMP) " +
+                            "values (?,?,?,?,?)");
+            stmt.setInt(1, generated_id = currentOperationId++);
+            stmt.setInt(2, OP_TYPES.valueOf("CREATE").ordinal()+1);
+            stmt.setInt(3, account_id);
+            stmt.setInt(4, current_balance);
+            stmt.setTimestamp(5, new Timestamp(System.currentTimeMillis()));
             stmt.execute();
-            generated_id = getGeneratedKey(stmt);
             stmt.close();
         } catch (SQLException e) {
             e.printStackTrace();
@@ -188,46 +186,41 @@ public class DataAccess {
         return generated_id;
     }
 
-    public int insertNewAccount(){
+    public int makeNewAccount(int account_nmr, int balance, boolean recovery){
         int generated_id = 0;
 
         try {
             PreparedStatement stmt = rawDataSource.getConnection().prepareStatement(
-                    "insert into ACCOUNTS (BALANCE, TIMESTAMP) values (?,?)", Statement.RETURN_GENERATED_KEYS);
-            stmt.setInt(1, 0);
-            stmt.setTimestamp(2, new Timestamp(System.currentTimeMillis()));
+                    "insert into ACCOUNTS (ACCOUNT_ID, BALANCE, TIMESTAMP) values (?,?,?)");
+            if(recovery) {
+                stmt.setInt(1, generated_id = account_nmr);
+                stmt.setInt(2, balance);
+            } else {
+                stmt.setInt(1, generated_id = currentAccountId++);
+                stmt.setInt(2, 0);
+            }
+            stmt.setTimestamp(3, new Timestamp(System.currentTimeMillis()));
             stmt.execute();
-            generated_id = getGeneratedKey(stmt);
             stmt.close();
         } catch (SQLException e) {
             e.printStackTrace();
         }
 
-        logNewAccount(generated_id, 0);
+        if(!recovery) logNewAccount(generated_id, 0);
+
         return generated_id;
     }
 
-    public int getGeneratedKey(Statement stmt){
-        try {
-            ResultSet rs = stmt.getGeneratedKeys();
-            rs.next();
-            return rs.getInt(1);
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        return 0;
+    public void updateBalance(int account_id, int final_amount){
+        dbUpdate("update ACCOUNTS set BALANCE = "+ final_amount + " where ACCOUNT_ID = " + account_id);
     }
 
-    public void updateBalance(int client_id, int final_amount){
-        dbUpdate("update ACCOUNTS set BALANCE = "+ final_amount + " where CLIENT_ID = " + client_id);
-    }
-
-    public int getClientBalance(int client_id){
+    public int getAccountBalance(int account_id){
         int balance = 0;
         try (
                 Statement s = rawDataSource.getConnection().createStatement();
                 ResultSet res = s.executeQuery(
-                        "SELECT BALANCE FROM APP.ACCOUNTS WHERE CLIENT_ID = " + client_id)) {
+                        "SELECT BALANCE FROM APP.ACCOUNTS WHERE ACCOUNT_ID = " + account_id)) {
 
             if (res.next())
                 balance = res.getInt("BALANCE");
@@ -237,15 +230,13 @@ public class DataAccess {
         return balance;
     }
 
-    //meter a devolver true ou false
     public void removeOperation(int op_id) throws SQLException {
         dbUpdate("delete from OPERATIONS where OP_ID = " + op_id);
     }
 
-    public void removeAccount(int client_id){
-        dbUpdate("delete from ACCOUNTS where CLIENT_ID = " + client_id);
+    public void removeAccount(int account_id){
+        dbUpdate("delete from ACCOUNTS where ACCOUNT_ID = " + account_id);
     }
-
 
     public String getOperationLogs() throws SQLException {
         StringBuilder a = new StringBuilder();
@@ -255,28 +246,75 @@ public class DataAccess {
                         "SELECT * FROM APP.OPERATIONS")) {
             a.append("List of operation entries: \n");
             while (res.next()) {
-                a.append("Id: " + res.getString("OP_ID"))
-                        .append("\tType: " + res.getString("OP_TYPE"))
-                        .append("\tAmount: " + res.getString("MV_AMOUNT"))
-                        .append("\tClient: " + res.getString("CLIENT_ID"))
-                        .append("\tBalance: " + res.getString("CURRENT_BALANCE"))
-                        .append("\tTimestamp: " + res.getString("TIMESTAMP").toString()+"\n");
+                int type = res.getInt("OP_TYPE");
+                switch(type){
+                    case 1:
+                        getMovementLog(a, res);
+                        break;
+                    case 2:
+                        getTransferLog(a, res);
+                        break;
+                    case 3:
+                        getCreateAccountLog(a, res);
+                        break;
+                }
             }
         }
         return a.toString();
     }
 
+    public void getCreateAccountLog(StringBuilder a, ResultSet res) throws SQLException {
+        a.append("Id: " + res.getString("OP_ID"))
+                .append("\tType: " + OP_TYPES.values()[res.getInt("OP_TYPE")-1].name())
+                .append("\tClient: " + res.getString("FROM_ACCOUNT_ID"))
+                .append("\tTimestamp: " + res.getString("TIMESTAMP").toString()+"\n");
+    }
 
-    public String getClientAccountsInfo(){
+    public void getMovementLog(StringBuilder a, ResultSet res) throws SQLException {
+        a.append("Id: " + res.getString("OP_ID"))
+                .append("\tType: " + OP_TYPES.values()[res.getInt("OP_TYPE")-1].name())
+                .append("\tClient: " + res.getString("FROM_ACCOUNT_ID"))
+                .append("\tAmount: " + res.getString("MV_AMOUNT"))
+                .append("\tBalance: " + res.getString("FROM_CURRENT_BALANCE"))
+                .append("\tTimestamp: " + res.getString("TIMESTAMP").toString()+"\n");
+    }
+
+    public void getTransferLog(StringBuilder a, ResultSet res) throws SQLException {
+        a.append("Id: " + res.getString("OP_ID"))
+                .append("\tType: " + OP_TYPES.values()[res.getInt("OP_TYPE")-1].name())
+                .append("\tFrom Client: " + res.getString("FROM_ACCOUNT_ID"))
+                .append("\tTo Client: " + res.getString("TO_ACCOUNT_ID"))
+                .append("\tAmount: " + res.getString("MV_AMOUNT"))
+                .append("\tFrom Balance: " + res.getString("FROM_CURRENT_BALANCE"))
+                .append("\tTo Balance: " + res.getString("TO_CURRENT_BALANCE"))
+                .append("\tTimestamp: " + res.getString("TIMESTAMP").toString()+"\n");
+    }
+
+    public String getOperationTypes() throws SQLException {
+        StringBuilder a = new StringBuilder();
+        try (
+                Statement s = rawDataSource.getConnection().createStatement();
+                ResultSet res = s.executeQuery(
+                        "SELECT * FROM APP.OPERATION_TYPE")) {
+            a.append("List of operation types: \n");
+            while (res.next()) {
+                a.append("Id: " + res.getString("OP_TYPE"))
+                        .append("\tType: " + res.getString("OP_DESIGNATION")+"\n");
+            }
+        }
+        return a.toString();
+    }
+
+    public String getAccountsInfo(){
         StringBuilder a = new StringBuilder();
         try {
             try (
                     Statement s = rawDataSource.getConnection().createStatement();
                     ResultSet res = s.executeQuery(
                             "SELECT * FROM APP.ACCOUNTS")) {
-                a.append("List of client accounts entries: \n");
+                a.append("Account list: \n");
                 while (res.next()) {
-                    a.append("\tID: " + res.getString("CLIENT_ID"))
+                    a.append("\tID: " + res.getString("ACCOUNT_ID"))
                             .append("\tBalance: " + res.getString("BALANCE"))
                             .append("\tTimestamp: " + res.getString("TIMESTAMP").toString()+"\n");
                 }
@@ -287,13 +325,13 @@ public class DataAccess {
         return a.toString();
     }
 
-    public String getLastClientOperations(int client_id, int n) throws SQLException {
+    public String getLastAccountOperations(int account_id, int n) throws SQLException {
         StringBuilder a = new StringBuilder();
         try (
                 Statement s = rawDataSource.getConnection().createStatement();
                 ResultSet res = s.executeQuery(
-                        "SELECT * FROM APP.OPERATIONS where CLIENT_ID = "+client_id+" ORDER BY TIMESTAMP DESC FETCH FIRST "+n+" ROWS ONLY")) {
-            a.append("List of the last n operations for client "+client_id+": \n");
+                        "SELECT * FROM APP.OPERATIONS where ACCOUNT_ID = "+account_id+" ORDER BY TIMESTAMP DESC FETCH FIRST "+n+" ROWS ONLY")) {
+            a.append("List of the last n operations for account "+account_id+": \n");
             while (res.next()) {
                 a.append("Id: " + res.getString("OP_ID"))
                         .append("\tType: " + res.getString("OP_TYPE"))
@@ -305,15 +343,15 @@ public class DataAccess {
         return a.toString();
     }
 
-    int getCurrentAccountId() {
+    private int getCurrentAccountId() {
         int nmr = 1;
         try (
                 Statement s = rawDataSource.getConnection().createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
                 ResultSet res = s.executeQuery(
-                        "SELECT CLIENT_ID FROM APP.ACCOUNTS")) {
+                        "SELECT ACCOUNT_ID FROM APP.ACCOUNTS")) {
 
             if (res.last()) {
-                nmr = Integer.parseInt(res.getString("CLIENT_ID"));
+                nmr = Integer.parseInt(res.getString("ACCOUNT_ID"));
             }
         } catch (SQLException ex) {
             return nmr;
@@ -321,7 +359,7 @@ public class DataAccess {
         return nmr;
     }
 
-    int getCurrentOperationId(){
+    private int getCurrentOperationId(){
         int nmr = 1;
         try (
                 Statement s = rawDataSource.getConnection().createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
@@ -336,16 +374,40 @@ public class DataAccess {
         }
         return nmr;
     }
+
+    public void refreshCurrentAccountId(){
+        this.currentAccountId = getCurrentAccountId();
+    }
+
+    public void refreshCurrentOperationId(){
+        this.currentOperationId = getCurrentOperationId();
+    }
+
+    public boolean hasAccount(int account){
+        boolean result = false;
+        try (
+                Statement s = rawDataSource.getConnection().createStatement();
+                ResultSet res = s.executeQuery(
+                        "SELECT ACCOUNT_ID FROM APP.ACCOUNTS WHERE ACCOUNT_ID = "+account)) {
+            result = res.next();
+        } catch (SQLException ex) {
+            return false;
+        }
+
+        return result;
+    }
+
     private static String buildDBName(String name) {
         return new StringBuilder(DB_PATH)
-                            .append(File.pathSeparator)
+                            .append(File.separatorChar)
                             .append(name)
-                            .append(File.pathSeparator)
+                            .append(File.separatorChar)
                             .append(DB_FILENAME)
                             .toString();
     }
 
     //talvez arranjar para não ter o tipo de operações hardcoded no switch
+    //rever
     public List<BankOperation> getOperationsAfter(int n_id){
         List<BankOperation> op_list = new ArrayList<>();
 
@@ -358,17 +420,17 @@ public class DataAccess {
                 switch(res.getInt("OP_TYPE")){
                     //MOVEMENT
                     case 1:
-                        op_list.add(new MovementOperation(res.getInt("OP_ID"), res.getInt("MV_AMOUNT"), res.getInt("FROM_CURRENT_BALANCE")));
+                        op_list.add(new MovementOperation(res.getInt("OP_ID"), res.getInt("MV_AMOUNT"), res.getInt("FROM_CURRENT_BALANCE"), res.getString("FROM_ACCOUNT_ID")));
                         break;
                     //TRANSFER
                     case 2:
                         op_list.add(new TransferOperation(res.getInt("OP_ID"), res.getInt("MV_AMOUNT"),
-                                res.getString("FROM_CLIENT_ID"), res.getString("TO_CLIENT_ID"), res.getInt("FROM_CURRENT_BALANCE"),
+                                res.getString("FROM_ACCOUNT_ID"), res.getString("TO_ACCOUNT_ID"), res.getInt("FROM_CURRENT_BALANCE"),
                                 res.getInt("TO_CURRENT_BALANCE")));
                         break;
                     //CREATE
                     case 3:
-                        op_list.add(new CreateOperation(res.getInt("OP_ID"), res.getString("FROM_CLIENT_ID")));
+                        op_list.add(new CreateOperation(res.getInt("OP_ID"), res.getString("FROM_ACCOUNT_ID")));
                         break;
                 }
             }

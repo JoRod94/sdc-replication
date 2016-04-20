@@ -5,15 +5,13 @@ package bank;
  */
 public class TransferOperation extends BankOperation{
     private int amount;
-    private String accountFrom;
     private String accountTo;
     private int finalBalanceFrom;
     private int finalBalanceTo;
 
     public TransferOperation(int id, int amount, String accountFrom, String accountTo, int finalBalanceFrom, int finalBalanceTo) {
-        super(id);
+        super(id, accountFrom);
         this.amount = amount;
-        this.accountFrom = accountFrom;
         this.accountTo = accountTo;
         this.finalBalanceFrom = finalBalanceFrom;
         this.finalBalanceTo = finalBalanceTo;
@@ -24,7 +22,7 @@ public class TransferOperation extends BankOperation{
     }
 
     public String getAccountFrom() {
-        return accountFrom;
+        return this.getAccount();
     }
 
     public String getAccountTo() {

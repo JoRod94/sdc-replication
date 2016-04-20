@@ -13,18 +13,27 @@ public class TestDataAccess {
         try {
             da.initEDBConnection("test", true, true);
 
+            System.out.println("Generated id: "+da.makeNewAccount(0,0,false));
+            System.out.println("Generated id: "+da.makeNewAccount(0,0,false));
 
-            System.out.println("Generated id: "+da.insertNewAccount());
-            System.out.println("Generated id: "+da.insertNewAccount());
-            System.out.println("Generated id: "+da.insertNewAccount());
+            da.makeNewAccount(10, 100, true);
+
+            System.out.println("Generated id: "+da.makeNewAccount(0,0,false));
+            System.out.println("Generated id: "+da.makeNewAccount(0,0,false));
+
+            System.out.println(da.makeMovement(0, 11234, 1, 10, false));
+
+            System.out.println(da.makeTransfer(0, 100, 1, 2, 10, 10, false));
+
+            //System.out.println(da.updateBalance(7, 100));
+
+//            for(int i = 0; i<15; i++)
+  //              System.out.println("Generated op_id: "+da.makeMovement(100, i%3, da.getClientBalance(i%3)+100));
 
 
-            for(int i = 0; i<15; i++)
-                System.out.println("Generated op_id: "+da.makeMovement(100, i%3, da.getClientBalance(i%3)+100));
 
-
-
-            System.out.println(da.getClientAccountsInfo());
+            System.out.println(da.getAccountsInfo());
+            System.out.println(da.getOperationLogs());
             //System.out.println(da.getLastClientOperations(1, 5));
             //System.out.println(da.getLastClientOperations("Paulo", 2));
 

@@ -209,6 +209,15 @@ public class Server implements MessageListener{
 
 
     /**
+     * Returns a set with the transactions made after a certain id
+     * @param id - the most recent id the recovered database
+     */
+    private ArrayList<BankOperation> obtainOperationsAfter(int id) {
+        //Todo: Build set of transactions after id
+        return null;
+    }
+
+    /**
      * Handles a message when not in recovery
      * @param m - Received message
      */
@@ -256,7 +265,8 @@ public class Server implements MessageListener{
     }
 
     private List<BankOperation> getOperationsAfter(int id) {
-        return database.getOperationsAfter(id);
+        return null;
+        //return database.getOperationsAfter(id);
     }
 
 
