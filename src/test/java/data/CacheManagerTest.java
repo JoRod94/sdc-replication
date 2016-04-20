@@ -1,12 +1,14 @@
 package data;
 
+import junit.framework.Assert;
+
 /**
  * Created by frm on 20/04/16.
  */
-public class CacheTest implements Cacheable {
+public class CacheManagerTest implements Cacheable {
     private int id;
 
-    public CacheTest(int i) {
+    public CacheManagerTest(int i) {
         id = i;
     }
 
@@ -16,16 +18,18 @@ public class CacheTest implements Cacheable {
     }
 
     public static void main(String[] args) {
-        CacheManager<CacheTest> cache = new CacheManager<>(20);
+        CacheManager<CacheManagerTest> cache = new CacheManager<>(20);
         for(int i = 1; i < 22; i++) {
-            cache.add(new CacheTest(i));
+            cache.add(new CacheManagerTest(i));
+            /* Final result is clear enough,
+             * but uncomment to see the cache development
             if( cache.get(Integer.toString(1)) != null)
                 System.out.println(i + ": Has 1");
             else
                 System.out.println(i + ": No 1");
+             */
         }
 
-        System.out.println("Should not have 1. Has 1? - " +
-                Boolean.toString(cache.get(Integer.toString(1)) != null));
+        Assert.assertEquals(null, cache.get(Integer.toString(1)));
     }
 }
