@@ -43,3 +43,9 @@ fabric.properties
 
 ### Intellij Patch ###
 *.iml
+
+### Derby database
+*.log
+src/main/resources/BankData/
+
+
