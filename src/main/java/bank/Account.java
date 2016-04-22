@@ -9,20 +9,20 @@ import data.Cacheable;
  * a simple association between an account and it's current balance.
  */
 public class Account implements Cacheable {
-    String id;
+    int id;
     int balance;
 
-    public Account(int balance, String id) {
+    public Account(int id, int balance) {
         this.balance = balance;
         this.id = id;
     }
 
     @Override
-    public String getId() {
+    public int getId() {
         return id;
     }
 
-    public void setId(String id) {
+    public void setId(int id) {
         this.id = id;
     }
 
@@ -36,6 +36,6 @@ public class Account implements Cacheable {
 
     @Override
     public int hashCode() {
-        return id.hashCode();
+        return id;
     }
 }

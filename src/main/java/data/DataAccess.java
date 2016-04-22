@@ -16,11 +16,13 @@ public class DataAccess {
     private static final String DB_FILENAME = "BankData";
     public enum OP_TYPES {MOVEMENT, TRANSFER, CREATE};
     private int currentAccountId, currentOperationId;
+    private CacheManager<Account> cache;
 
     public void initEDBConnection(String name, boolean drop_tables, boolean create_tables) throws SQLException {
         String dbName = buildDBName(name);
         rawDataSource = new EmbeddedDataSource();
         rawDataSource.setDatabaseName(dbName);
+        cache = new CacheManager<>(1024);
 
         File f = new File(dbName);
 
@@ -206,17 +208,23 @@ public class DataAccess {
             e.printStackTrace();
         }
 
+        cache.add(new Account(account_nmr, balance));
         if(!recovery) logNewAccount(generated_id, 0);
+
 
         return generated_id;
     }
 
     public void updateBalance(int account_id, int final_amount){
         dbUpdate("update ACCOUNTS set BALANCE = "+ final_amount + " where ACCOUNT_ID = " + account_id);
+        cache.add(new Account(account_id, final_amount));
     }
 
     public int getAccountBalance(int account_id){
         int balance = 0;
+        Account a = cache.get(account_id);
+        if(a != null) return a.getBalance();
+
         try (
                 Statement s = rawDataSource.getConnection().createStatement();
                 ResultSet res = s.executeQuery(
@@ -227,15 +235,8 @@ public class DataAccess {
         } catch (SQLException ex) {
             return balance;
         }
+
         return balance;
-    }
-
-    public void removeOperation(int op_id) throws SQLException {
-        dbUpdate("delete from OPERATIONS where OP_ID = " + op_id);
-    }
-
-    public void removeAccount(int account_id){
-        dbUpdate("delete from ACCOUNTS where ACCOUNT_ID = " + account_id);
     }
 
     public String getOperationLogs() throws SQLException {
@@ -385,6 +386,7 @@ public class DataAccess {
 
     public boolean hasAccount(int account){
         boolean result = false;
+        if(cache.get(account) != null) return true;
         try (
                 Statement s = rawDataSource.getConnection().createStatement();
                 ResultSet res = s.executeQuery(

@@ -5,5 +5,5 @@ package data;
  * Interface that provides an object that should be cached using a CacheManager
  */
 public interface Cacheable {
-    String getId();
+    int getId();
 }

@@ -13,8 +13,8 @@ public class CacheManagerTest implements Cacheable {
     }
 
     @Override
-    public String getId() {
-        return Integer.toString(id);
+    public int getId() {
+        return id;
     }
 
     public static void main(String[] args) {
@@ -30,8 +30,8 @@ public class CacheManagerTest implements Cacheable {
              */
         }
 
-        Assert.assertEquals(null, cache.get(Integer.toString(1)));
-        Assert.assertNotNull(cache.get(Integer.toString(2)));
-        Assert.assertNotNull(cache.get(Integer.toString(20)));
+        Assert.assertEquals(null, cache.get(1));
+        Assert.assertNotNull(cache.get(2));
+        Assert.assertNotNull(cache.get(20));
     }
 }

@@ -8,7 +8,7 @@ import java.util.PriorityQueue;
  */
 public class CacheManager<T extends Cacheable>{
     private final int maxSize;
-    private HashMap<String, CacheObject> cache;
+    private HashMap<Integer, CacheObject> cache;
     private PriorityQueue<CacheObject> queue;
 
     /**
@@ -29,7 +29,7 @@ public class CacheManager<T extends Cacheable>{
      * @param id - id of the object to search for
      * @return - queried object or null
      */
-    public T get(String id) {
+    public T get(int id) {
         CacheObject o = cache.get(id);
         return o == null ? null : (T) o.getContent();
     }
@@ -40,7 +40,7 @@ public class CacheManager<T extends Cacheable>{
      */
     public void add(T o) {
         if(maxSize == cache.size()) {
-            String targetId = ((T)queue.poll().getContent()).getId();
+            int targetId = ((T)queue.poll().getContent()).getId();
             cache.remove(targetId);
         }
 
