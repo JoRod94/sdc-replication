@@ -51,30 +51,32 @@ public class DataAccess {
     }
 
     public void dbUpdate(String query) {
+        try {
+            tryDbUpdate(query);
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void tryDbUpdate(String query) throws SQLException {
         Statement s = null;
         try {
             s = rawDataSource.getConnection().createStatement();
             s.executeUpdate(query);
-        } catch (SQLException e) {
-            e.printStackTrace();
         } finally {
-            try {
-                s.close();
-            } catch (SQLException e) {
-                e.printStackTrace();
-            }
+            s.close();
         }
     }
 
-    public void createAccountsTable(){
-        dbUpdate("create table ACCOUNTS ("
+    public void createAccountsTable() throws SQLException {
+        tryDbUpdate("create table ACCOUNTS ("
                 + "ACCOUNT_ID INTEGER PRIMARY KEY, "
                 + "BALANCE INTEGER,"
                 + "TIMESTAMP TIMESTAMP)");
     }
 
-    public void createOperationsTable(){
-        dbUpdate("create table OPERATIONS ("
+    public void createOperationsTable() throws SQLException {
+        tryDbUpdate("create table OPERATIONS ("
                 + "OP_ID INTEGER PRIMARY KEY, "
                 + "OP_TYPE INTEGER NOT NULL, "
                 + "MV_AMOUNT INTEGER, "
@@ -88,8 +90,8 @@ public class DataAccess {
                 + "CONSTRAINT TO_ACCOUNT_ID_REF FOREIGN KEY (TO_ACCOUNT_ID) REFERENCES ACCOUNTS(ACCOUNT_ID))");
     }
 
-    public void createOperationTypeTable(){
-        dbUpdate("create table OPERATION_TYPE ("
+    public void createOperationTypeTable() throws SQLException {
+        tryDbUpdate("create table OPERATION_TYPE ("
                 + "OP_TYPE INTEGER PRIMARY KEY, "
                 + "OP_DESIGNATION VARCHAR(20))");
 
@@ -102,8 +104,8 @@ public class DataAccess {
                     "("+(ot.ordinal()+1)+",\'"+ot.name()+"\')");
     }
 
-    public void dropTable(String tablename) {
-        dbUpdate("DROP TABLE " + tablename);
+    public void dropTable(String tablename) throws SQLException {
+        tryDbUpdate("DROP TABLE " + tablename);
     }
 
     public int makeMovement(int op_id, int mv_amount, int account_id, int final_balance, boolean recovery){

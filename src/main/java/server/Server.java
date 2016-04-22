@@ -15,6 +15,7 @@ import net.sf.jgcs.jgroups.JGroupsService;
 import java.io.IOException;
 import java.net.SocketAddress;
 import java.sql.SQLException;
+import java.sql.SQLSyntaxErrorException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.PriorityQueue;
@@ -89,9 +90,16 @@ public class Server implements MessageListener{
      * @param buildNew - indicates if a new database will be created
      * @throws SQLException
      */
-    public DataAccess getDataAccess( boolean buildNew ) throws SQLException {
+    public DataAccess getDataAccess(boolean buildNew) throws SQLException {
         DataAccess da = new DataAccess();
-        da.initEDBConnection(DB_NAME, false, buildNew);
+        try {
+            da.initEDBConnection(DB_NAME, buildNew, buildNew);
+        } catch(SQLSyntaxErrorException e){
+            if(e.getSQLState().equals("42Y55"))
+                da.initEDBConnection(DB_NAME, false, buildNew);
+            else
+                throw e;
+        }
         return da;
     }
 
