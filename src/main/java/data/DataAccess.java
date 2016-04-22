@@ -12,7 +12,7 @@ import org.apache.derby.jdbc.EmbeddedDataSource;
 public class DataAccess {
     EmbeddedDataSource rawDataSource;
 
-    private static final String DB_PATH = "./src/main/resources";
+    private static final String DB_PATH = "./src/main/resources/db";
     private static final String DB_FILENAME = "BankData";
     public enum OP_TYPES {MOVEMENT, TRANSFER, CREATE};
     private int currentAccountId, currentOperationId;
@@ -201,7 +201,7 @@ public class DataAccess {
                 stmt.setInt(2, balance);
             } else {
                 stmt.setInt(1, generated_id = currentAccountId++);
-                stmt.setInt(2, 0);
+                stmt.setInt(2, balance);
             }
             stmt.setTimestamp(3, new Timestamp(System.currentTimeMillis()));
             stmt.execute();
