@@ -11,6 +11,7 @@
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
+    <orderEntry type="library" scope="TEST" name="Maven: junit:junit:4.8.2" level="project" />
     <orderEntry type="library" name="Maven: net.sf.jgcs:jgcs-jgroups:0.8.1" level="project" />
     <orderEntry type="library" name="Maven: org.jgroups:jgroups:3.2.7.Final" level="project" />
     <orderEntry type="library" name="Maven: net.sf.jgcs:jgcs:0.8.1" level="project" />
