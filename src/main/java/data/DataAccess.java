@@ -422,17 +422,17 @@ public class DataAccess {
                 switch(res.getInt("OP_TYPE")){
                     //MOVEMENT
                     case 1:
-                        op_list.add(new MovementOperation(res.getInt("OP_ID"), res.getInt("MV_AMOUNT"), res.getInt("FROM_CURRENT_BALANCE"), res.getString("FROM_ACCOUNT_ID")));
+                        op_list.add(new BankOperation.Movement(res.getInt("OP_ID"), res.getInt("MV_AMOUNT"), res.getInt("FROM_CURRENT_BALANCE"), res.getString("FROM_ACCOUNT_ID")));
                         break;
                     //TRANSFER
                     case 2:
-                        op_list.add(new TransferOperation(res.getInt("OP_ID"), res.getInt("MV_AMOUNT"),
+                        op_list.add(new BankOperation.Transfer(res.getInt("OP_ID"), res.getInt("MV_AMOUNT"),
                                 res.getString("FROM_ACCOUNT_ID"), res.getString("TO_ACCOUNT_ID"), res.getInt("FROM_CURRENT_BALANCE"),
                                 res.getInt("TO_CURRENT_BALANCE")));
                         break;
                     //CREATE
                     case 3:
-                        op_list.add(new CreateOperation(res.getInt("OP_ID"), res.getString("FROM_ACCOUNT_ID")));
+                        op_list.add(new BankOperation.Create(res.getInt("OP_ID"), res.getString("FROM_ACCOUNT_ID")));
                         break;
                 }
             }

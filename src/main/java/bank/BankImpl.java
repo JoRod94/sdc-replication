@@ -49,12 +49,12 @@ public class BankImpl implements Bank, Serializable {
         Collections.reverse(op_list);
 
         for(BankOperation operation : op_list){
-            if(operation instanceof CreateOperation){
-                recoverCreateAccountOperation(recovered_accounts, (CreateOperation) operation);
-            } else if(operation instanceof MovementOperation) {
-                recoverMovementOperation(recovered_accounts, (MovementOperation) operation);
-            } else if(operation instanceof TransferOperation) {
-                recoverTransferOperation(recovered_accounts, (TransferOperation) operation);
+            if(operation instanceof BankOperation.Create){
+                recoverCreateAccountOperation(recovered_accounts, (BankOperation.Create) operation);
+            } else if(operation instanceof BankOperation.Movement) {
+                recoverMovementOperation(recovered_accounts, (BankOperation.Movement) operation);
+            } else if(operation instanceof BankOperation.Transfer) {
+                recoverTransferOperation(recovered_accounts, (BankOperation.Transfer) operation);
             }
         }
 
@@ -63,14 +63,14 @@ public class BankImpl implements Bank, Serializable {
     }
 
     //Não tenho a certeza que passar assim o Set funcione
-    public void recoverCreateAccountOperation(Set<String> recovered_accounts, CreateOperation co){
+    public void recoverCreateAccountOperation(Set<String> recovered_accounts, BankOperation.Create co){
         if(!recovered_accounts.contains(co.getAccount())){
             recovered_accounts.add(co.getAccount());
         }
         database.makeNewAccount(Integer.parseInt(co.getAccount()), 0, true);
     }
 
-    public void recoverMovementOperation(Set<String> recovered_accounts, MovementOperation mo){
+    public void recoverMovementOperation(Set<String> recovered_accounts, BankOperation.Movement mo){
         if(!recovered_accounts.contains(mo.getAccount())){
             if(!database.hasAccount(Integer.parseInt(mo.getAccount())))
                 database.makeNewAccount(Integer.parseInt(mo.getAccount()), mo.getFinalBalance(), true);
@@ -81,7 +81,7 @@ public class BankImpl implements Bank, Serializable {
         database.makeMovement(mo.getId(), mo.getAmount(), Integer.parseInt(mo.getAccount()), mo.getFinalBalance(), true);
     }
 
-    public void recoverTransferOperation(Set<String> recovered_accounts, TransferOperation to){
+    public void recoverTransferOperation(Set<String> recovered_accounts, BankOperation.Transfer to){
         boolean from_recovered = recovered_accounts.contains(to.getAccountFrom());
         boolean to_recovered = recovered_accounts.contains(to.getAccountTo());
 
