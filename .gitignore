@@ -46,6 +46,6 @@ fabric.properties
 
 ### Derby database
 *.log
-src/main/resources/BankData/
+src/main/resources/db
 
 

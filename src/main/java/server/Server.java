@@ -25,11 +25,12 @@ import java.util.PriorityQueue;
  */
 public class Server implements MessageListener{
     public static final String GROUP_NAME = "BankSystem";
-    public static final String DB_NAME = "BankData";
 
     private String bankId;
     private Bank bank;
     private int msgId;
+
+    private String dbName;
 
     // Pending Requests during recovery
     private final PriorityQueue<Message> pendingRequests = new PriorityQueue<>();
@@ -46,13 +47,15 @@ public class Server implements MessageListener{
      * Creates a new BankServer
      * If no other BankServer has been created, false should be passed
      * as the argument. Otherwise, the server will enter recovery mode.
+     * @param name - database name
      * @param recover - boolean indicating the need for a recovery.
      * @throws IOException
      * @throws InterruptedException
      */
-    public Server(boolean recover) throws IOException, InterruptedException, SQLException {
+    public Server(String name, boolean recover) throws IOException, InterruptedException, SQLException {
         this.bankId = (new java.rmi.dgc.VMID()).toString();
         this.recover = recover;
+        this.dbName = name;
 
         // If we are in recovery, we must start by discarding
         // If we are not, it doesn't really matter the value of discard
@@ -93,10 +96,10 @@ public class Server implements MessageListener{
     public DataAccess getDataAccess(boolean buildNew) throws SQLException {
         DataAccess da = new DataAccess();
         try {
-            da.initEDBConnection(DB_NAME, buildNew, buildNew);
+            da.initEDBConnection(dbName, buildNew, buildNew);
         } catch(SQLSyntaxErrorException e){
             if(e.getSQLState().equals("42Y55"))
-                da.initEDBConnection(DB_NAME, false, buildNew);
+                da.initEDBConnection(dbName, false, buildNew);
             else
                 throw e;
         }
@@ -216,14 +219,6 @@ public class Server implements MessageListener{
     }
 
 
-    /**
-     * Returns a set with the transactions made after a certain id
-     * @param id - the most recent id the recovered database
-     */
-    private ArrayList<BankOperation> obtainOperationsAfter(int id) {
-        //Todo: Build set of transactions after id
-        return null;
-    }
 
     /**
      * Handles a message when not in recovery
@@ -304,7 +299,7 @@ public class Server implements MessageListener{
 
     public static void main(String[] args){
         try {
-            new Server(Boolean.valueOf(args[0])).work();
+            new Server(args[0], Boolean.valueOf(args[1])).work();
         } catch (InterruptedException | IOException | SQLException e) {
             e.printStackTrace();
         }
