@@ -48,4 +48,6 @@ fabric.properties
 *.log
 src/main/resources/db
 
-
+### Normalized environment
+# This file is already checked in, this way we all use the same project
+SDCReplication.iml
