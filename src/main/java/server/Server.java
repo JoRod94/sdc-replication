@@ -39,6 +39,11 @@ public class Server implements MessageListener{
     // Indicates whether or not we are discarding messages
     private boolean discard;
 
+    // Saving the current db connection
+    // We need to save it in the server since we must communicate with it
+    // for recovery mode logic. Bank implementation should be clear of this logic
+    private DataAccess da;
+
     // JGroups Variables
     private DataSession data;
     private Service service;
@@ -61,11 +66,12 @@ public class Server implements MessageListener{
         // If we are not, it doesn't really matter the value of discard
         this.discard = recover;
 
-
         // We only create the bank with a brand new database when not recovering
         // Otherwise the bank will be created based on a status update
         if(!recover)
             this.bank = new BankImpl(getDataAccess(true));
+        else
+            getDataAccess(false);
 
         setUpConnection();
     }
@@ -94,7 +100,7 @@ public class Server implements MessageListener{
      * @throws SQLException
      */
     public DataAccess getDataAccess(boolean buildNew) throws SQLException {
-        DataAccess da = new DataAccess();
+        da = new DataAccess();
         try {
             da.initEDBConnection(dbName, buildNew, buildNew);
         } catch(SQLSyntaxErrorException e){
@@ -132,7 +138,7 @@ public class Server implements MessageListener{
      */
     public void work() throws IOException, InterruptedException {
         if(recover)
-            sendRequest(Invocation.STATE, null);
+            sendRequest(Invocation.STATE, da.getCurrentOperationId());
 
         // Waits in a non-blocking manner forever
         while(true){
@@ -257,7 +263,7 @@ public class Server implements MessageListener{
      * @param args - list of arguments to be sent
      * @throws IOException
      */
-    public void sendRequest(String request, Object[] args) throws IOException {
+    public void sendRequest(String request, Object... args) throws IOException {
         System.out.println("SENDING: " + request);
         Invocation i = new Invocation(request, args);
         Packet p = new Packet(buildPacketId(), i);
@@ -268,8 +274,7 @@ public class Server implements MessageListener{
     }
 
     private List<BankOperation> getOperationsAfter(int id) {
-        return null;
-        //return database.getOperationsAfter(id);
+        return da.getOperationsAfter(id);
     }
 
 

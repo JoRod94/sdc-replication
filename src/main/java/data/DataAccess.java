@@ -362,7 +362,7 @@ public class DataAccess {
         return nmr;
     }
 
-    private int getCurrentOperationId(){
+    public int getCurrentOperationId(){
         int nmr = 1;
         try (
                 Statement s = rawDataSource.getConnection().createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
@@ -387,12 +387,12 @@ public class DataAccess {
     }
 
     public boolean hasAccount(int account){
-        boolean result = false;
+        boolean result;
         if(cache.get(account) != null) return true;
-        try (
-                Statement s = rawDataSource.getConnection().createStatement();
-                ResultSet res = s.executeQuery(
-                        "SELECT ACCOUNT_ID FROM APP.ACCOUNTS WHERE ACCOUNT_ID = "+account)) {
+        try {
+            Statement s = rawDataSource.getConnection().createStatement();
+            ResultSet res = s.executeQuery(
+                    "SELECT ACCOUNT_ID FROM APP.ACCOUNTS WHERE ACCOUNT_ID = "+account);
             result = res.next();
         } catch (SQLException ex) {
             return false;
