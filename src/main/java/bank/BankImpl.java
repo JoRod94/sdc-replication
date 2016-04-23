@@ -45,6 +45,8 @@ public class BankImpl implements Bank, Serializable {
     }
 
     public void doRecovery(List<BankOperation> op_list){
+        System.out.println(op_list);
+
         Set<String> recovered_accounts = new HashSet<>();
         Collections.reverse(op_list);
 
@@ -62,12 +64,13 @@ public class BankImpl implements Bank, Serializable {
         database.refreshCurrentOperationId();
     }
 
-    //Não tenho a certeza que passar assim o Set funcione
+    //TODO: Não tenho a certeza que passar assim o Set funcione
     public void recoverCreateAccountOperation(Set<String> recovered_accounts, BankOperation.Create co){
         if(!recovered_accounts.contains(co.getAccount())){
             recovered_accounts.add(co.getAccount());
+            // Make New Account inside this if because it hasn't been recovered, this is the only operation for this account.
+            database.makeNewAccount(Integer.parseInt(co.getAccount()), 0, true);
         }
-        database.makeNewAccount(Integer.parseInt(co.getAccount()), 0, true);
     }
 
     public void recoverMovementOperation(Set<String> recovered_accounts, BankOperation.Movement mo){
@@ -105,8 +108,8 @@ public class BankImpl implements Bank, Serializable {
     }
 
     @Override
-    public String create(int amount) {
-        return Integer.toString(database.makeNewAccount(0,amount,false));
+    public String create() {
+        return Integer.toString(database.makeNewAccount(0, 0,false));
     }
 
     @Override

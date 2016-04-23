@@ -6,10 +6,9 @@ package bank;
 public interface Bank {
     /**
      * Creates a new account
-     * @param amount - initial balance for the newly created account
      * @return - account unique ID
      */
-    String create(int amount);
+    String create();
 
     /**
      * Access the account balance

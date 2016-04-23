@@ -18,36 +18,44 @@ public class DataAccess {
     private int currentAccountId, currentOperationId;
     private CacheManager<Account> cache;
 
-    public void initEDBConnection(String name, boolean drop_tables, boolean create_tables) throws SQLException {
+    public void initEDBConnection(String name) throws SQLException {
         String dbName = buildDBName(name);
-        rawDataSource = new EmbeddedDataSource();
-        rawDataSource.setDatabaseName(dbName);
+
         cache = new CacheManager<>(1024);
 
         File f = new File(dbName);
 
-        if (!f.exists()) {
-            rawDataSource.setCreateDatabase("create");
-        } else {
-            if (!f.isDirectory()) {
-                rawDataSource.setCreateDatabase("create");
-            }
-        }
 
-        if(drop_tables){
-            dropTable("OPERATIONS");
-            dropTable("ACCOUNTS");
-            dropTable("OPERATION_TYPE");
-
+        if (!f.exists()){
+            createDB(dbName);
         }
-        if(create_tables){
-            createAccountsTable();
-            createOperationTypeTable();
-            createOperationsTable();
+        else if(!f.isDirectory()) {
+            createDB(dbName);
         }
 
         refreshCurrentAccountId();
         refreshCurrentOperationId();
+    }
+
+    private void createTables() throws SQLException {
+        createAccountsTable();
+        createOperationTypeTable();
+        createOperationsTable();
+    }
+
+    private void dropTables() throws SQLException {
+        dropTable("OPERATIONS");
+        dropTable("ACCOUNTS");
+        dropTable("OPERATION_TYPE");
+    }
+
+    private void createDB(String dbName) throws SQLException {
+
+        rawDataSource = new EmbeddedDataSource();
+        rawDataSource.setDatabaseName(dbName);
+        rawDataSource.setCreateDatabase("create");
+
+        createTables();
     }
 
     public void dbUpdate(String query) {
@@ -111,10 +119,13 @@ public class DataAccess {
     public int makeMovement(int op_id, int mv_amount, int account_id, int final_balance, boolean recovery){
         int generated_id = 0;
 
+        System.out.println("MOVEMENT: "+mv_amount);
+
         try {
             PreparedStatement stmt = rawDataSource.getConnection().prepareStatement(
                     "insert into OPERATIONS (OP_ID, OP_TYPE, MV_AMOUNT, FROM_ACCOUNT_ID, FROM_CURRENT_BALANCE, TIMESTAMP) " +
                             "values (?,?,?,?,?,?)");
+
             if(recovery) {
                 stmt.setInt(1, generated_id = op_id);
             } else {
@@ -125,7 +136,9 @@ public class DataAccess {
             stmt.setInt(4, account_id);
             stmt.setInt(5, final_balance);
             stmt.setTimestamp(6, new Timestamp(System.currentTimeMillis()));
+
             stmt.execute();
+            System.out.print("METE UM PRINT");
             stmt.close();
         } catch (SQLException e) {
             e.printStackTrace();

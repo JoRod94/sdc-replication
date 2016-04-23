@@ -66,12 +66,14 @@ public class Server implements MessageListener{
         // If we are not, it doesn't really matter the value of discard
         this.discard = recover;
 
+        System.out.println("RECOVER: "+recover);
+
         // We only create the bank with a brand new database when not recovering
         // Otherwise the bank will be created based on a status update
         if(!recover)
-            this.bank = new BankImpl(getDataAccess(true));
+            this.bank = new BankImpl(getDataAccess());
         else
-            getDataAccess(false);
+            getDataAccess();
 
         setUpConnection();
     }
@@ -96,19 +98,11 @@ public class Server implements MessageListener{
 
     /**
      * Obtains a DataAccess object, used to manage the bank database
-     * @param buildNew - indicates if a new database will be created
      * @throws SQLException
      */
-    public DataAccess getDataAccess(boolean buildNew) throws SQLException {
+    public DataAccess getDataAccess() throws SQLException {
         da = new DataAccess();
-        try {
-            da.initEDBConnection(dbName, buildNew, buildNew);
-        } catch(SQLSyntaxErrorException e){
-            if(e.getSQLState().equals("42Y55"))
-                da.initEDBConnection(dbName, false, buildNew);
-            else
-                throw e;
-        }
+        da.initEDBConnection(dbName);
         return da;
     }
 
@@ -119,8 +113,8 @@ public class Server implements MessageListener{
      * @throws ClassNotFoundException
      */
     // TODO: Change this to the correct class
-    private void recover(ArrayList<BankOperation> transactions) throws IOException, ClassNotFoundException, SQLException {
-        this.bank = new BankImpl(getDataAccess(false), transactions);
+    private void recover(DataAccess da, ArrayList<BankOperation> transactions) throws IOException, ClassNotFoundException, SQLException {
+        this.bank = new BankImpl(da, transactions);
 
         Message queued;
         while (!pendingRequests.isEmpty()) {
@@ -182,7 +176,7 @@ public class Server implements MessageListener{
                 System.out.println("MSG ID " + msgId);
                 System.out.println("STATUS UPDATE");
                 // TODO: cast to correct class
-                recover((ArrayList<BankOperation>) content);
+                recover(da, (ArrayList<BankOperation>) content);
             }
         } else {
             // If we received an unexpected message
@@ -203,7 +197,7 @@ public class Server implements MessageListener{
 
         switch(command) {
             case Invocation.CREATE:
-                reply = bank.create((Integer)args[0]);
+                reply = bank.create();
                 break;
             case Invocation.BALANCE:
                 reply = bank.balance((String)args[0]);

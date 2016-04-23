@@ -1,9 +1,11 @@
 package bank;
 
+import java.io.Serializable;
+
 /**
  * Created by joaorodrigues on 18 Apr 16.
  */
-public abstract class BankOperation {
+public abstract class BankOperation implements Serializable{
     private int id;
     private String account;
 
@@ -19,10 +21,10 @@ public abstract class BankOperation {
     public String getAccount() { return account; }
 
     public static class Create extends BankOperation {
-
         public Create(int id, String account) {
             super(id, account);
         }
+
     }
 
     public static class Movement extends BankOperation {

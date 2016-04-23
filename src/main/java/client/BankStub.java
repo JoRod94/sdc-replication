@@ -53,8 +53,8 @@ public class BankStub implements Bank, MessageListener {
     }
 
     @Override
-    public String create(int amount) {
-        return (String) invoke(Invocation.CREATE, amount);
+    public String create() {
+        return (String) invoke(Invocation.CREATE);
     }
 
     @Override

@@ -35,8 +35,8 @@ public class Client {
 
         switch(args[0]){
             case "create":
-                if(args.length == 2)
-                    result = stub.create(Integer.parseInt(args[1]));
+                if(args.length == 1)
+                    result = stub.create();
                 break;
             case "balance":
                 if(args.length == 2)
