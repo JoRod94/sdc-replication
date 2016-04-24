@@ -48,7 +48,6 @@ public class BankImpl implements Bank, Serializable {
         System.out.println(op_list);
 
         Set<String> recovered_accounts = new HashSet<>();
-        Collections.reverse(op_list);
 
         for(BankOperation operation : op_list){
             if(operation instanceof BankOperation.Create){

@@ -119,8 +119,6 @@ public class DataAccess {
     public int makeMovement(int op_id, int mv_amount, int account_id, int final_balance, boolean recovery){
         int generated_id = 0;
 
-        System.out.println("MOVEMENT: "+mv_amount);
-
         try {
             PreparedStatement stmt = rawDataSource.getConnection().prepareStatement(
                     "insert into OPERATIONS (OP_ID, OP_TYPE, MV_AMOUNT, FROM_ACCOUNT_ID, FROM_CURRENT_BALANCE, TIMESTAMP) " +
@@ -138,7 +136,6 @@ public class DataAccess {
             stmt.setTimestamp(6, new Timestamp(System.currentTimeMillis()));
 
             stmt.execute();
-            System.out.print("METE UM PRINT");
             stmt.close();
         } catch (SQLException e) {
             e.printStackTrace();
@@ -243,7 +240,7 @@ public class DataAccess {
         try (
                 Statement s = rawDataSource.getConnection().createStatement();
                 ResultSet res = s.executeQuery(
-                        "SELECT BALANCE FROM APP.ACCOUNTS WHERE ACCOUNT_ID = " + account_id)) {
+                        "SELECT BALANCE FROM ACCOUNTS WHERE ACCOUNT_ID = " + account_id)) {
 
             if (res.next())
                 balance = res.getInt("BALANCE");
