@@ -20,18 +20,15 @@ public class DataAccess {
 
     public void initEDBConnection(String name) throws SQLException {
         String dbName = buildDBName(name);
-
         cache = new CacheManager<>(1024);
-
         File f = new File(dbName);
 
-
-        if (!f.exists()){
+        if (!f.exists())
             createDB(dbName);
-        }
-        else if(!f.isDirectory()) {
+        else if(!f.isDirectory())
             createDB(dbName);
-        }
+        else
+            connectDB(dbName);
 
         refreshCurrentAccountId();
         refreshCurrentOperationId();
@@ -49,12 +46,19 @@ public class DataAccess {
         dropTable("OPERATION_TYPE");
     }
 
-    private void createDB(String dbName) throws SQLException {
-
+    private void connectTo(String dbName, boolean create) {
         rawDataSource = new EmbeddedDataSource();
         rawDataSource.setDatabaseName(dbName);
-        rawDataSource.setCreateDatabase("create");
+        if(create)
+            rawDataSource.setCreateDatabase("create");
+    }
 
+    private void connectDB(String dbName) {
+        connectTo(dbName, false);
+    }
+
+    private void createDB(String dbName) throws SQLException {
+        connectTo(dbName, true);
         createTables();
     }
 
