@@ -184,14 +184,18 @@ public class DataAccess {
         return generated_id;
     }
 
-    public int logNewAccount(int account_id, int current_balance){
+    public int logNewAccount(int op_id, int account_id, int current_balance, boolean recovery){
         int generated_id = 0;
 
         try {
             PreparedStatement stmt = rawDataSource.getConnection().prepareStatement(
                     "insert into OPERATIONS (OP_ID, OP_TYPE, FROM_ACCOUNT_ID, FROM_CURRENT_BALANCE, TIMESTAMP) " +
                             "values (?,?,?,?,?)");
-            stmt.setInt(1, generated_id = currentOperationId++);
+            if(recovery) {
+                stmt.setInt(1, generated_id = op_id);
+            } else {
+                stmt.setInt(1, generated_id = currentOperationId++);
+            }
             stmt.setInt(2, OP_TYPES.valueOf("CREATE").ordinal()+1);
             stmt.setInt(3, account_id);
             stmt.setInt(4, current_balance);
@@ -225,7 +229,7 @@ public class DataAccess {
         }
 
         cache.add(new Account(account_nmr, balance));
-        if(!recovery) logNewAccount(generated_id, 0);
+        if(!recovery) logNewAccount(0, generated_id, 0, false);
 
 
         return generated_id;

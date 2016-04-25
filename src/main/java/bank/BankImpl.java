@@ -68,7 +68,7 @@ public class BankImpl implements Bank, Serializable {
             recovered_accounts.add(co.getAccount());
             database.makeNewAccount(Integer.parseInt(co.getAccount()), 0, true);
         }
-        database.logNewAccount(Integer.parseInt(co.getAccount()), 0);
+        database.logNewAccount(co.getId(), Integer.parseInt(co.getAccount()), 0, true);
     }
 
     public void recoverMovementOperation(Set<String> recovered_accounts, BankOperation.Movement mo){
