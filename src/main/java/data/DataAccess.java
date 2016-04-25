@@ -369,7 +369,7 @@ public class DataAccess {
         try (
                 Statement s = rawDataSource.getConnection().createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
                 ResultSet res = s.executeQuery(
-                        "SELECT ACCOUNT_ID FROM APP.ACCOUNTS")) {
+                        "SELECT ACCOUNT_ID FROM APP.ACCOUNTS ORDER BY ACCOUNT_ID ASC")) {
 
             if (res.last()) {
                 nmr = Integer.parseInt(res.getString("ACCOUNT_ID")) + 1;
@@ -385,7 +385,7 @@ public class DataAccess {
         try (
                 Statement s = rawDataSource.getConnection().createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
                 ResultSet res = s.executeQuery(
-                        "SELECT OP_ID FROM APP.OPERATIONS")) {
+                        "SELECT OP_ID FROM APP.OPERATIONS ORDER BY OP_ID ASC")) {
 
             if (res.last()) {
                 nmr = Integer.parseInt(res.getString("OP_ID")) + 1;
