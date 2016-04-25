@@ -368,7 +368,7 @@ public class DataAccess {
                         "SELECT ACCOUNT_ID FROM APP.ACCOUNTS")) {
 
             if (res.last()) {
-                nmr = Integer.parseInt(res.getString("ACCOUNT_ID"));
+                nmr = Integer.parseInt(res.getString("ACCOUNT_ID")) + 1;
             }
         } catch (SQLException ex) {
             return nmr;
@@ -384,7 +384,7 @@ public class DataAccess {
                         "SELECT OP_ID FROM APP.OPERATIONS")) {
 
             if (res.last()) {
-                nmr = Integer.parseInt(res.getString("OP_ID"));
+                nmr = Integer.parseInt(res.getString("OP_ID")) + 1;
             }
         } catch (SQLException ex) {
             return nmr;

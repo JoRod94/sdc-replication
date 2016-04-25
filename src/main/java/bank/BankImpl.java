@@ -119,7 +119,7 @@ public class BankImpl implements Bank, Serializable {
     public boolean movement(String account, int amount) {
         Integer balance = database.getAccountBalance(Integer.parseInt(account));
 
-        if(balance == null || (amount < 0 && amount + balance < 0))
+        if(balance == null || (amount < 0 && (amount + balance < 0)))
             return false;
 
         database.makeMovement(0, amount, Integer.parseInt(account), amount+balance, false);
