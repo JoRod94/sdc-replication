@@ -240,8 +240,7 @@ public class DataAccess {
         cache.add(new Account(account_id, final_amount));
     }
 
-    public int getAccountBalance(int account_id){
-        int balance = 0;
+    public Integer getAccountBalance(int account_id){
         Account a = cache.get(account_id);
         if(a != null) return a.getBalance();
 
@@ -251,12 +250,12 @@ public class DataAccess {
                         "SELECT BALANCE FROM ACCOUNTS WHERE ACCOUNT_ID = " + account_id)) {
 
             if (res.next())
-                balance = res.getInt("BALANCE");
+                return res.getInt("BALANCE");
         } catch (SQLException ex) {
-            return balance;
+            return null;
         }
 
-        return balance;
+        return null;
     }
 
     public String getOperationLogs() throws SQLException {

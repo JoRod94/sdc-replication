@@ -10,6 +10,7 @@ import java.util.Scanner;
  */
 public class Client {
     private final static String DEFAULT_REPLY = "Invalid Command";
+    private final static String DEFAULT_BALANCE_ERROR_MSG = "Account doesn't exist";
     private Bank stub;
 
     public Client() throws IOException {
@@ -29,6 +30,7 @@ public class Client {
         }
     }
 
+    // TODO: Decidir se é preciso meter mais mensagens de controlo de erros
     public void interpret(String command) throws IOException {
         String args[] = command.split(" ");
         Object result = null;
@@ -41,6 +43,7 @@ public class Client {
             case "balance":
                 if(args.length == 2)
                     result = stub.balance(args[1]);
+                    if(result == null) result = DEFAULT_BALANCE_ERROR_MSG;
                 break;
             case "movement":
                 if(args.length == 3)
