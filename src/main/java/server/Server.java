@@ -16,9 +16,7 @@ import java.io.IOException;
 import java.net.SocketAddress;
 import java.sql.SQLException;
 import java.sql.SQLSyntaxErrorException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.PriorityQueue;
+import java.util.*;
 
 /**
  * Created by joaorodrigues on 14 Apr 16.
@@ -33,7 +31,7 @@ public class Server implements MessageListener{
     private String dbName;
 
     // Pending Requests during recovery
-    private final PriorityQueue<Message> pendingRequests = new PriorityQueue<>();
+    private final Queue<Message> pendingRequests = new LinkedList<>();
     // Indicates whether or not we should ask for the group for the current state
     private boolean recover;
     // Indicates whether or not we are discarding messages
