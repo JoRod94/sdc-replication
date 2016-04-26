@@ -34,7 +34,7 @@ public class Client {
     // TODO: Decidir se é preciso meter mais mensagens de controlo de erros
     public void interpret(String command) throws IOException {
         String args[] = command.split(" ");
-        Object result = null;
+        Object result = DEFAULT_REPLY;
 
         switch(args[0]) {
             case "create":
