@@ -73,6 +73,10 @@ public class BankStub implements Bank, MessageListener {
         return false;
     }
 
+    public String latest(String account, int n){
+        return (String) invoke(Invocation.LATEST, account, n);
+    }
+
     @Override
     public Object onMessage(Message message) {
         Packet received = new Packet(message.getPayload());

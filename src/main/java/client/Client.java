@@ -41,9 +41,10 @@ public class Client {
                     result = stub.create();
                 break;
             case "balance":
-                if(args.length == 2)
+                if(args.length == 2){
                     result = stub.balance(args[1]);
                     if(result == null) result = DEFAULT_BALANCE_ERROR_MSG;
+                }
                 break;
             case "movement":
                 if(args.length == 3)
@@ -54,8 +55,12 @@ public class Client {
                     result = stub.transfer(args[1], args[2],
                                             Integer.parseInt(args[3]));
                 break;
-            case "movements":
-                //TODO
+            case "latest":
+                if(args.length == 3){
+                    result = stub.latest(args[1], Integer.parseInt(args[2]));
+                    if(result == null) result = DEFAULT_BALANCE_ERROR_MSG;
+                }
+                break;
             default:
                 result = DEFAULT_REPLY;
                 break;

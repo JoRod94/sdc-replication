@@ -345,21 +345,26 @@ public class DataAccess {
         return a.toString();
     }
 
-    public String getLastAccountOperations(int account_id, int n) throws SQLException {
+    // TODO: É necessário excluir o operação de criação de conta?
+    public String getLastAccountOperations(int account_id, int n) {
         StringBuilder a = new StringBuilder();
         try (
                 Statement s = rawDataSource.getConnection().createStatement();
                 ResultSet res = s.executeQuery(
-                        "SELECT * FROM APP.OPERATIONS where ACCOUNT_ID = "+account_id+" ORDER BY TIMESTAMP DESC FETCH FIRST "+n+" ROWS ONLY")) {
-            a.append("List of the last n operations for account "+account_id+": \n");
+                        "SELECT * FROM OPERATIONS where FROM_ACCOUNT_ID = "+account_id+" ORDER BY TIMESTAMP " +
+                                "DESC FETCH FIRST "+n+" ROWS ONLY")) {
+
             while (res.next()) {
                 a.append("Id: " + res.getString("OP_ID"))
-                        .append("\tType: " + res.getString("OP_TYPE"))
+                        .append("\tType: " + OP_TYPES.values()[res.getInt("OP_TYPE")-1].name())
                         .append("\tAmount: " + res.getString("MV_AMOUNT"))
-                        .append("\tBalance: " + res.getString("CURRENT_BALANCE"))
+                        .append("\tBalance: " + res.getString("FROM_CURRENT_BALANCE"))
                         .append("\tTimestamp: " + res.getString("TIMESTAMP").toString()+"\n");
             }
+        } catch (SQLException e) {
+            e.printStackTrace();
         }
+        if(a.length() == 0) a.append("No operations for account "+account_id);
         return a.toString();
     }
 
