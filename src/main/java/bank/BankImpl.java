@@ -131,7 +131,7 @@ public class BankImpl implements Bank, Serializable {
         Integer balanceFrom = database.getAccountBalance(Integer.parseInt(origin));
         Integer balanceTo = database.getAccountBalance(Integer.parseInt(destination));
 
-        if(balanceFrom == null || balanceTo == null || (amount < 0 && balanceFrom - amount < 0) || amount < 0)
+        if(balanceFrom == null || balanceTo == null || balanceFrom - amount < 0 || amount < 0)
             return false;
 
         database.makeTransfer(0, amount, Integer.parseInt(origin), Integer.parseInt(destination), balanceFrom-amount,
