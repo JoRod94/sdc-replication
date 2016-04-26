@@ -11,6 +11,7 @@ import java.util.Scanner;
 public class Client {
     private final static String DEFAULT_REPLY = "Invalid Command";
     private final static String DEFAULT_BALANCE_ERROR_MSG = "Account doesn't exist";
+    private final static String INVALID_AMOUNT_TRANSFER = "Invalid amount for transfer";
     private Bank stub;
 
     public Client() throws IOException {
@@ -35,24 +36,27 @@ public class Client {
         String args[] = command.split(" ");
         Object result = null;
 
-        switch(args[0]){
+        switch(args[0]) {
             case "create":
-                if(args.length == 1)
+                if (args.length == 1)
                     result = stub.create();
                 break;
             case "balance":
-                if(args.length == 2)
+                if (args.length == 2)
                     result = stub.balance(args[1]);
-                    if(result == null) result = DEFAULT_BALANCE_ERROR_MSG;
+                if (result == null) result = DEFAULT_BALANCE_ERROR_MSG;
                 break;
             case "movement":
-                if(args.length == 3)
+                if (args.length == 3)
                     result = stub.movement(args[1], Integer.parseInt(args[2]));
                 break;
             case "transfer":
-                if(args.length == 4)
-                    result = stub.transfer(args[1], args[2],
-                                            Integer.parseInt(args[3]));
+                if (args.length == 4) {
+                    if(Integer.parseInt(args[3]) < 0)
+                        result = INVALID_AMOUNT_TRANSFER;
+                    else
+                        result = stub.transfer(args[1], args[2], Integer.parseInt(args[3]));
+                }
                 break;
             case "movements":
                 //TODO

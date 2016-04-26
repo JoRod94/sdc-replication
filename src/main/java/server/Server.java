@@ -208,7 +208,8 @@ public class Server implements MessageListener{
                 reply = getOperationsAfter((int) args[0]);
                 break;
             case Invocation.TRANSFER:
-                // TODO
+                reply = bank.transfer( (String) args[0], (String) args[1], (int) args[2]);
+                break;
             default:
                 reply = null;
         }

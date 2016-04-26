@@ -69,8 +69,7 @@ public class BankStub implements Bank, MessageListener {
 
     @Override
     public boolean transfer(String origin, String destination, int amount) {
-        // TODO: implement
-        return false;
+        return (boolean) invoke(Invocation.TRANSFER, origin, destination, amount);
     }
 
     @Override
