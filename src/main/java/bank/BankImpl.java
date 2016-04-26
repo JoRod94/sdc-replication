@@ -143,4 +143,11 @@ public class BankImpl implements Bank, Serializable {
                 balanceTo+amount, false);
         return true;
     }
+
+    @Override
+    public String latest(String account, int n) {
+        if(database.hasAccount(Integer.parseInt(account)))
+            return database.getLastAccountOperations(Integer.parseInt(account), n);
+        else return null;
+    }
 }

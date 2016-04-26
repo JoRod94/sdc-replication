@@ -191,7 +191,7 @@ public class Server implements MessageListener{
      * @return
      */
     private Object handleInvocation(String command, Object[] args) {
-        Object reply;
+        Object reply = null;
 
         switch(command) {
             case Invocation.CREATE:
@@ -209,6 +209,9 @@ public class Server implements MessageListener{
                 break;
             case Invocation.TRANSFER:
                 reply = bank.transfer( (String) args[0], (String) args[1], (int) args[2]);
+                break;
+            case Invocation.LATEST:
+                reply = bank.latest((String)args[0], (int)args[1]);
                 break;
             default:
                 reply = null;

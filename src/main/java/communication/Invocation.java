@@ -15,6 +15,7 @@ public class Invocation implements Serializable {
     public static final String MOVEMENT = "movement";
     public static final String TRANSFER = "transfer";
     public static final String STATE    = "state";
+    public static final String LATEST   = "latest";
 
     private String command;
     private Object[] args;
