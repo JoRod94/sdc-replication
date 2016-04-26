@@ -28,10 +28,12 @@ public class CacheManagerTest implements Cacheable {
             else
                 System.out.println(i + ": No 1");
              */
+
+            if(i == 20) cache.get(1); // updating the access
         }
 
-        Assert.assertEquals(null, cache.get(1));
-        Assert.assertNotNull(cache.get(2));
+        Assert.assertNotNull(cache.get(1));     // 1 was accessed, cache was reordered
+        Assert.assertNull(cache.get(2));        // 2 should've been removed instead
         Assert.assertNotNull(cache.get(20));
     }
 }
