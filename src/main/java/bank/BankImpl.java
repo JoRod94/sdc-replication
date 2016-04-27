@@ -87,7 +87,7 @@ public class BankImpl implements Bank, Serializable {
      * @param recovered_accounts - accounts that have already bin recovered
      * @param to - operation to be applied
      */
-    public void recoverTransferOperation(Set<String> recovered_accounts, BankOperation.Transfer to){
+    private void recoverTransferOperation(Set<String> recovered_accounts, BankOperation.Transfer to){
         boolean from_recovered = recovered_accounts.contains(to.getAccountFrom());
         boolean to_recovered = recovered_accounts.contains(to.getAccountTo());
 
