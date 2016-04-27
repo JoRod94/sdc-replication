@@ -22,14 +22,26 @@ public class Account implements Cacheable {
         return id;
     }
 
+    /**
+     * Sets the account id
+     * @param id
+     */
     public void setId(int id) {
         this.id = id;
     }
 
+    /**
+     * Returns the account ballance
+     * @return
+     */
     public int getBalance() {
         return balance;
     }
 
+    /**
+     * Sets the new account balance
+     * @param balance
+     */
     public void setBalance(int balance) {
         this.balance = balance;
     }
