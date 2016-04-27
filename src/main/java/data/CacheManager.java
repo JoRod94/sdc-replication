@@ -31,7 +31,19 @@ public class CacheManager<T extends Cacheable>{
      */
     public T get(int id) {
         CacheObject o = cache.get(id);
-        return o == null ? null : (T) o.getContent();
+        T t = o == null ? null : (T) o.touch().getContent();
+
+        if(o != null) {
+            // Reordering the priority queue.
+            // It's ok to remove after updating the object,
+            // as it won't affect the search for the object.
+            // The removal criteria will be the result of equals.
+            // Since there is no override, it will use the object id.
+            queue.remove(o);
+            queue.add(o);
+        }
+
+        return t;
     }
 
     /**
@@ -54,9 +66,13 @@ public class CacheManager<T extends Cacheable>{
      * Timestamps allow for the object to be organized using a queue,
      * so that the oldest object in cache is removed
      */
-    class CacheObject implements Comparable<CacheObject> {
+    static class CacheObject implements Comparable<CacheObject> {
         private Object object;
         private Long timestamp;
+        private Long lastAccessed;
+
+        private static double TIME_WEIGHT = 0.7;
+        private static double ACCESS_WEIGHT = 0.3;
 
         /**
          * Creates a CacheObject that wraps the given object
@@ -64,7 +80,18 @@ public class CacheManager<T extends Cacheable>{
          */
         public CacheObject(Object o) {
             this.object = o;
-            this.timestamp = System.currentTimeMillis() % 1000;
+            this.timestamp = System.currentTimeMillis();
+            this.lastAccessed = timestamp;
+        }
+
+        /**
+         * Updates the object access timestamp
+         * Returns itself to allow for method chaining
+         * @return own object
+         */
+        public CacheObject touch() {
+            this.lastAccessed = System.currentTimeMillis();
+            return this;
         }
 
         /**
@@ -75,9 +102,21 @@ public class CacheManager<T extends Cacheable>{
             return object;
         }
 
+        /**
+         * Calculates the overall weight.
+         * Amounts for weights on last access and creation timestamps
+         * @return - weight factor
+         */
+        private Double weightFactor() {
+            return ACCESS_WEIGHT * lastAccessed + TIME_WEIGHT * timestamp;
+        }
+
         @Override
         public int compareTo(CacheObject co) {
-            return Long.compare(timestamp, co.timestamp);
+            // This comparison version accounts for temporal locality.
+            // It's just to allow to take advantage of this property
+            // in a very, very simple way, as this wasn't really the point of the project.
+            return Double.compare(weightFactor(), co.weightFactor());
         }
     }
 }
