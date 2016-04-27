@@ -1,50 +1,40 @@
 package bank;
 
-import client.BankStub;
 import data.DataAccess;
 
 import java.io.Serializable;
-import java.util.List;
-import java.util.Map;
-import java.util.TreeMap;
-
 import java.util.*;
 /**
  * Created by joaorodrigues on 14 Apr 16.
  */
 public class BankImpl implements Bank, Serializable {
-    private TreeMap<String, Integer> accounts;
-    private int id;
     private DataAccess database;
 
-    public BankImpl() {
-        accounts = new TreeMap<>();
-        id = 0;
-    }
-
-    //Deprecated constructor
-    public BankImpl(BankImpl b) {
-        System.out.println("RECOVERING STATE...");
-        accounts = b.accounts;
-        id = b.id;
-        for(Map.Entry<String, Integer> p : accounts.entrySet())
-            System.out.println("- " + p.getKey() + " :: " + p.getValue());
-    }
-
-
-    //Used when recovering, applies the received operations to the database
+    /**
+     * Recovery mode constructor.
+     * Used when the current server is recovering to a new state
+     * @param dataAccess - database access layer to be used by the object
+     * @param operations - pending operations to process
+     */
     public BankImpl(DataAccess dataAccess, List<BankOperation> operations) {
         database = dataAccess;
         doRecovery(operations);
     }
 
-    //Used when not recovering
+    /**
+     * Normal mode constructor.
+     * @param dataAccess - database access layer to be used by the object
+     */
     public BankImpl(DataAccess dataAccess) {
         database = dataAccess;
 
     }
 
-    public void doRecovery(List<BankOperation> op_list){
+    /**
+     * Apply a list of pending operations
+     * @param op_list - pending operations to be applied
+     */
+    private void doRecovery(List<BankOperation> op_list){
         System.out.println(op_list);
 
         Set<String> recovered_accounts = new HashSet<>();
@@ -63,7 +53,12 @@ public class BankImpl implements Bank, Serializable {
         database.refreshCurrentOperationId();
     }
 
-    public void recoverCreateAccountOperation(Set<String> recovered_accounts, BankOperation.Create co){
+    /**
+     * Recovery mode helper. Applies a CREATE operation
+     * @param recovered_accounts - accounts that have already bin recovered
+     * @param co - operation to be applied
+     */
+    private void recoverCreateAccountOperation(Set<String> recovered_accounts, BankOperation.Create co){
         if(!recovered_accounts.contains(co.getAccount())){
             recovered_accounts.add(co.getAccount());
             database.makeNewAccount(Integer.parseInt(co.getAccount()), 0, true);
@@ -71,7 +66,12 @@ public class BankImpl implements Bank, Serializable {
         database.logNewAccount(co.getId(), Integer.parseInt(co.getAccount()), 0, true);
     }
 
-    public void recoverMovementOperation(Set<String> recovered_accounts, BankOperation.Movement mo){
+    /**
+     * Recovery mode helper. Applies a MOVEMENT operation
+     * @param recovered_accounts - accounts that have already bin recovered
+     * @param mo - operation to be applied
+     */
+    private void recoverMovementOperation(Set<String> recovered_accounts, BankOperation.Movement mo){
         if(!recovered_accounts.contains(mo.getAccount())){
             if(!database.hasAccount(Integer.parseInt(mo.getAccount())))
                 database.makeNewAccount(Integer.parseInt(mo.getAccount()), mo.getFinalBalance(), true);
@@ -82,6 +82,11 @@ public class BankImpl implements Bank, Serializable {
         database.makeMovement(mo.getId(), mo.getAmount(), Integer.parseInt(mo.getAccount()), mo.getFinalBalance(), true);
     }
 
+    /**
+     * Recovery mode helper. Applies a TRANSFER operation
+     * @param recovered_accounts - accounts that have already bin recovered
+     * @param to - operation to be applied
+     */
     public void recoverTransferOperation(Set<String> recovered_accounts, BankOperation.Transfer to){
         boolean from_recovered = recovered_accounts.contains(to.getAccountFrom());
         boolean to_recovered = recovered_accounts.contains(to.getAccountTo());
