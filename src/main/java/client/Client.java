@@ -18,6 +18,11 @@ public class Client {
         this.stub = new BankStub();
     }
 
+    /**
+     * Runs the client
+     * @throws IOException
+     * @throws InterruptedException
+     */
     public void work() throws IOException, InterruptedException {
         Scanner scanner = new Scanner(System.in);
         String command;
@@ -32,7 +37,12 @@ public class Client {
     }
 
     // TODO: Decidir se é preciso meter mais mensagens de controlo de erros
-    public void interpret(String command) throws IOException {
+    /**
+     * Interprets a given command and its arguments, invoking the corresponding stub method
+     * @param command - list composed of the actual command (first element) and its arguments
+     * @throws IOException
+     */
+    private void interpret(String command) throws IOException {
         String args[] = command.split(" ");
         Object result = DEFAULT_REPLY;
 
