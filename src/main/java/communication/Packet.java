@@ -4,17 +4,28 @@ import java.io.*;
 
 /**
  * Created by frm on 07/03/16.
+ * Wrapper for objects to be sent inside a Message.
+ * This class allows for auto marshalling and unmarshalling of any content.
  */
 public class Packet implements Serializable {
     private String id;
     private Object content;
 
+    /**
+     * Creates a packet with a given unique id and the attached object
+     * @param id - uniqued packet id
+     * @param content - object to be attached
+     */
     public Packet(String id, Object content) {
         this.id = id;
         this.content = content;
     }
 
-
+    /**
+     * Creates a packet from the given bytes.
+     * Reconstructs and unmarshalls the underlying packet object.
+     * @param payload - packet bytes to be unmarshalled
+     */
     public Packet(byte[] payload) {
         ByteArrayInputStream bis = new ByteArrayInputStream(payload);
         ObjectInputStream ois = null;
@@ -41,6 +52,10 @@ public class Packet implements Serializable {
         }
     }
 
+    /**
+     * Marshalls the current object to a byte representation
+     * @return - byte representation of the object
+     */
     public byte[] getBytes() {
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         ObjectOutputStream oos = null;
@@ -67,10 +82,16 @@ public class Packet implements Serializable {
         return obj;
     }
 
+    /**
+     * @return object unique id
+     */
     public String getId() {
         return id;
     }
 
+    /**
+     * @return object attached content
+     */
     public Object getContent() {
         return content;
     }
