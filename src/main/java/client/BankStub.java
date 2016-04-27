@@ -16,6 +16,7 @@ import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Created by joaorodrigues on 12 Apr 16.
+ * Stub class that acts as an intermediate in remote method invocation.
  */
 public class BankStub implements Bank, MessageListener {
     private String stubId;
