@@ -2,6 +2,7 @@ package data;
 
 import java.util.HashMap;
 import java.util.PriorityQueue;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Created by frm on 18/04/16.
@@ -10,6 +11,7 @@ public class CacheManager<T extends Cacheable>{
     private final int maxSize;
     private HashMap<Integer, CacheObject> cache;
     private PriorityQueue<CacheObject> queue;
+    private ReentrantLock lock;
 
     /**
      * Creates a CacheManager with the given maximum size.
@@ -21,6 +23,7 @@ public class CacheManager<T extends Cacheable>{
         maxSize = size;
         cache = new HashMap<>();
         queue = new PriorityQueue<>();
+        lock = new ReentrantLock();
     }
 
     /**
@@ -30,7 +33,9 @@ public class CacheManager<T extends Cacheable>{
      * @return - queried object or null
      */
     public T get(int id) {
+        lock.lock();
         CacheObject o = cache.get(id);
+        lock.unlock();
         T t = o == null ? null : (T) o.touch().getContent();
 
         if(o != null) {
@@ -39,8 +44,10 @@ public class CacheManager<T extends Cacheable>{
             // as it won't affect the search for the object.
             // The removal criteria will be the result of equals.
             // Since there is no override, it will use the object id.
+            lock.lock();
             queue.remove(o);
             queue.add(o);
+            lock.unlock();
         }
 
         return t;
@@ -51,6 +58,7 @@ public class CacheManager<T extends Cacheable>{
      * @param o - object to be cached
      */
     public void add(T o) {
+        lock.lock();
         if(maxSize == cache.size()) {
             int targetId = ((T)queue.poll().getContent()).getId();
             cache.remove(targetId);
@@ -59,6 +67,7 @@ public class CacheManager<T extends Cacheable>{
         CacheObject co = new CacheObject(o);
         cache.put(o.getId(), co);
         queue.add(co);
+        lock.unlock();
     }
 
     /**
