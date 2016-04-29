@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -15,18 +16,22 @@ import java.util.function.Function;
 /**
  * Created by frm on 29/04/16.
  */
-public class Client extends Thread {
+public class Client implements Runnable {
+    private static int NR_REQUESTS = 250;
+    private static int NR_THREADS = 32;
+    private static int NR_SEEDS = 50;
     private static ReadWriteLock lock = new ReentrantReadWriteLock();
-    private static int NR_REQUESTS = 1000;
-    private static int NR_THREADS = 8;
-    private static int NR_SEEDS = 10;
+    private static CountDownLatch startSignal = new CountDownLatch(1);
+    private static CountDownLatch doneSignal = new CountDownLatch(NR_THREADS);
 
     private Bank bank;
     private Map<String, Integer> accounts;
+    private int id;
 
-    public Client(Map<String, Integer> m) throws IOException {
+    public Client(int id, Map<String, Integer> m) throws IOException {
         this.bank = new BankStub();
         this.accounts = m;
+        this.id = id;
     }
 
     private Integer readOp(Function<Map<String, Integer>, Integer> f) {
@@ -43,7 +48,9 @@ public class Client extends Thread {
     }
 
     private String getRandomAccount() {
-        return Integer.toString( new Random().nextInt(readOp((a) -> a.size())) + 1 );
+        // account ids are one-based, random is zero-based and outer-bound exclusive
+        // we add one to avoid issues with this
+        return Integer.toString(new Random().nextInt(readOp((a) -> a.size())) + 1);
     }
 
     private void createAccount() {
@@ -58,8 +65,19 @@ public class Client extends Thread {
     private void makeMovement() {
         int amount = new Random().nextInt(1001); // Random#nextInt is exclusive for the outer bound
         String account = getRandomAccount();
-        if( bank.movement(account, amount) )
-            writeOp((a) -> a.put( account, a.get(account) + amount));
+        if( bank.movement(account, amount) ) {
+            try {
+                writeOp((a) -> {
+                    Integer i = a.get(account);
+                    a.put( account, i + amount);
+                });
+            } catch(NullPointerException e) {
+                if(accounts.get(account) == null)
+                    System.out.println("ACCOUNT DOES NOT EXIST");
+                System.out.println(account + "::" + readOp( (a) -> accounts.size()));
+                lock.writeLock().unlock();
+            }
+        }
     }
 
     private void seed(int nrSeeds) {
@@ -87,34 +105,87 @@ public class Client extends Thread {
 
     }
 
-    private static void verify(Bank b, Map<String, Integer> m) {
-        for(Map.Entry<String, Integer> pair : m.entrySet()) {
-            int balance = b.balance(pair.getKey());
-            if(pair.getValue() != balance)
-                System.out.println("EXPECTED: " + pair.getValue() + " AND GOT: " + balance);
-        }
-    }
-
     @Override
     public void run() {
+        try {
+            startSignal.await();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
         seed(NR_SEEDS);
         randomRequests(NR_REQUESTS);
+        doneSignal.countDown();
+        System.out.println("[END] Thread " + id);
    }
+
+    private static int verify(Bank b, Map<String, Integer> m) {
+        int errors = 0;
+        for(Map.Entry<String, Integer> pair : m.entrySet()) {
+            int balance = b.balance(pair.getKey());
+            if(pair.getValue() != balance) {
+                errors++;
+                System.out.println(
+                        new StringBuilder()
+                            .append("### VALUE MISMATCH:")
+                            .append("\t\tEXPECTED: ")
+                            .append(pair.getValue())
+                            .append(" GOT: ")
+                            .append(balance)
+                            .append(" - ACCOUNT: ")
+                            .append(pair.getKey())
+                            .toString()
+                );
+            }
+        }
+
+        return errors;
+    }
+
+    private static void printResults(long start, long end, Map<String, Integer> sharedMap) throws IOException {
+        long time = end - start;
+
+        long requests = NR_THREADS * (NR_REQUESTS + NR_SEEDS);
+
+        System.out.println(
+                new StringBuilder()
+                    .append("----- FINISHED TESTING -----")
+                    .append("\n----- VERIFYING DATA CONSISTENCY -----")
+                    .toString()
+        );
+
+        int errors = verify(new BankStub(), sharedMap);
+
+        System.out.println(
+                new StringBuilder()
+                    .append("----- FINISHED VERIFYING DATA CONSISTENCY -----")
+                    .append("\n")
+                    .append(errors)
+                    .append(" ERRORS FOUND")
+                    .append("\nTOTAL TIME: ")
+                    .append(time)
+                    .append("ms\nNR REQUESTS: ")
+                    .append(requests)
+                    .append("\nTHROUGHPUT: ")
+                    .append(((double)requests)/((double)time / 1000.0))
+                    .append(" req/s\nLATENCY: ")
+                    .append(((double)time/1000.0)/(double)requests)
+                    .append(" s/req")
+                    .toString()
+        );
+    }
 
     public static void main(String[] args) throws IOException, InterruptedException {
         Map<String, Integer> m = new HashMap<>();
-        Thread[] threads = new Thread[NR_THREADS];
 
-        for(int i = 0; i < NR_THREADS; i++) {
-            threads[i] = new Client(m);
-            threads[i].start();
-        }
+        for(int i = 0; i < NR_THREADS; i++)
+            new Thread(new Client(i + 1, m)).start();
 
-        for(Thread t : threads)
-            t.join();
+        startSignal.countDown(); // start testing simultaneously
+        long start = System.currentTimeMillis();
+        doneSignal.await(); // wait for threads to end
+        long end = System.currentTimeMillis();
 
-        System.out.println("VERIFYING...");
-        verify(new BankStub(), m);
-        System.out.println("DONE VERIFYING");
+        printResults(start, end, m);
+        System.exit(0);
     }
 }
