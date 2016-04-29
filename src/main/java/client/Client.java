@@ -3,91 +3,118 @@ package client;
 import bank.Bank;
 
 import java.io.IOException;
-import java.util.Scanner;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 /**
- * Created by joaorodrigues on 14 Apr 16.
+ * Created by frm on 29/04/16.
  */
-public class Client {
-    private final static String DEFAULT_REPLY = "Invalid Command";
-    private final static String DEFAULT_BALANCE_ERROR_MSG = "Account doesn't exist";
-    private final static String INVALID_AMOUNT_TRANSFER = "Invalid amount for transfer";
-    private Bank stub;
+public class Client extends Thread {
+    private static ReadWriteLock lock = new ReentrantReadWriteLock();
+    private static int NR_REQUESTS = 1000;
+    private static int NR_THREADS = 8;
+    private static int NR_SEEDS = 10;
 
-    public Client() throws IOException {
-        this.stub = new BankStub();
+    private Bank bank;
+    private Map<String, Integer> accounts;
+
+    public Client(Map<String, Integer> m) throws IOException {
+        this.bank = new BankStub();
+        this.accounts = m;
     }
 
-    /**
-     * Runs the client
-     * @throws IOException
-     * @throws InterruptedException
-     */
-    public void work() throws IOException, InterruptedException {
-        Scanner scanner = new Scanner(System.in);
-        String command;
+    private Integer readOp(Function<Map<String, Integer>, Integer> f) {
+        lock.readLock().lock();
+        Integer i = f.apply(accounts);
+        lock.readLock().unlock();
+        return i;
+    }
 
-        while(true){
-            System.out.println("Write Parameters: ");
+    private void writeOp(Consumer<Map<String, Integer>> f) {
+        lock.writeLock().lock();
+        f.accept(accounts);
+        lock.writeLock().unlock();
+    }
 
-            command = scanner.nextLine();
+    private String getRandomAccount() {
+        return Integer.toString( new Random().nextInt(readOp((a) -> a.size())) + 1 );
+    }
 
-            interpret(command);
+    private void createAccount() {
+        String newId = bank.create();
+        writeOp((a) -> a.put(newId, 0));
+    }
+
+    private Integer requestBalance() {
+        return bank.balance(getRandomAccount());
+    }
+
+    private void makeMovement() {
+        int amount = new Random().nextInt(1001); // Random#nextInt is exclusive for the outer bound
+        String account = getRandomAccount();
+        if( bank.movement(account, amount) )
+            writeOp((a) -> a.put( account, a.get(account) + amount));
+    }
+
+    private void seed(int nrSeeds) {
+        for(int i = 0; i < nrSeeds; i++)
+            createAccount();
+    }
+
+    private void randomRequests(int nrRequests) {
+        ThreadLocalRandom op = ThreadLocalRandom.current();
+
+        for(int i = 0; i < nrRequests; i++) {
+            int nextOp = op.nextInt(1, 4);
+            switch(nextOp) {
+                case 1: // CREATE
+                    createAccount();
+                    break;
+                case 2: // BALANCE
+                    requestBalance();
+                    break;
+                case 3: // MOVEMENT
+                    makeMovement();
+                    break;
+            }
+        }
+
+    }
+
+    private static void verify(Bank b, Map<String, Integer> m) {
+        for(Map.Entry<String, Integer> pair : m.entrySet()) {
+            int balance = b.balance(pair.getKey());
+            if(pair.getValue() != balance)
+                System.out.println("EXPECTED: " + pair.getValue() + " AND GOT: " + balance);
         }
     }
 
-    // TODO: Decidir se é preciso meter mais mensagens de controlo de erros
-    /**
-     * Interprets a given command and its arguments, invoking the corresponding stub method
-     * @param command - list composed of the actual command (first element) and its arguments
-     * @throws IOException
-     */
-    private void interpret(String command) throws IOException {
-        String args[] = command.split(" ");
-        Object result = DEFAULT_REPLY;
+    @Override
+    public void run() {
+        seed(NR_SEEDS);
+        randomRequests(NR_REQUESTS);
+   }
 
-        switch(args[0]) {
-            case "create":
-                if (args.length == 1)
-                    result = stub.create();
-                break;
-            case "balance":
-                if(args.length == 2){
-                    result = stub.balance(args[1]);
-                    if(result == null) result = DEFAULT_BALANCE_ERROR_MSG;
-                }
-                break;
-            case "movement":
-                if (args.length == 3)
-                    result = stub.movement(args[1], Integer.parseInt(args[2]));
-                break;
-            case "transfer":
-                if (args.length == 4) {
-                    if(Integer.parseInt(args[3]) < 0)
-                        result = INVALID_AMOUNT_TRANSFER;
-                    else
-                        result = stub.transfer(args[1], args[2], Integer.parseInt(args[3]));
-                }
-                break;
-            case "latest":
-                if(args.length == 3){
-                    result = stub.latest(args[1], Integer.parseInt(args[2]));
-                    if(result == null) result = DEFAULT_BALANCE_ERROR_MSG;
-                }
-                break;
-            default:
-                result = DEFAULT_REPLY;
-                break;
+    public static void main(String[] args) throws IOException, InterruptedException {
+        Map<String, Integer> m = new HashMap<>();
+        Thread[] threads = new Thread[NR_THREADS];
+
+        for(int i = 0; i < NR_THREADS; i++) {
+            threads[i] = new Client(m);
+            threads[i].start();
         }
 
-        System.out.println(result);
-    }
+        for(Thread t : threads)
+            t.join();
 
-    public static void main(String[] args){
-        try {
-            (new Client()).work();
-        } catch (IOException | InterruptedException e) {
-            e.printStackTrace();
-        }
+        System.out.println("VERIFYING...");
+        verify(new BankStub(), m);
+        System.out.println("DONE VERIFYING");
     }
 }

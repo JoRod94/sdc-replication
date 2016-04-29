@@ -112,7 +112,7 @@ public class BankStub implements Bank, MessageListener {
 
         Message message = data.createMessage();
         message.setPayload(p.getBytes());
-        System.out.println("SENDING:" + request);
+        //System.out.println("SENDING:" + request);
         data.multicast(message, service, null);
     }
 
