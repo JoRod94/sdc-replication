@@ -35,14 +35,13 @@ public class BankImpl implements Bank, Serializable {
     }
 
     /**
-     * Apply a list of pending operations (executed in recovery mode)
+     * Apply a list of pending operations (executed in recovery mode). If recovery fails (due to database exception), it stops.
      * @param op_list - pending operations to be applied
      */
-    //TODO: Retornar false se ocorrer rollback?
     //TODO: Remover prints
     private void doRecovery(List<BankOperation> op_list){
         System.out.println(op_list);
-
+        boolean stmt_sucess = true;
         //Stores already recovered accounts. The operation list is recovered backwards to avoid re-writing
         //data related to the same object (account)
         Set<String> recovered_accounts = new HashSet<>();
@@ -55,11 +54,15 @@ public class BankImpl implements Bank, Serializable {
         //Recovers each operation individually
         for(BankOperation operation : op_list){
             if(operation instanceof BankOperation.Create){
-                recoverCreateAccountOperation(recovered_accounts, (BankOperation.Create) operation, con);
+                stmt_sucess = recoverCreateAccountOperation(recovered_accounts, (BankOperation.Create) operation, con);
             } else if(operation instanceof BankOperation.Movement) {
-                recoverMovementOperation(recovered_accounts, (BankOperation.Movement) operation, con);
+                stmt_sucess = recoverMovementOperation(recovered_accounts, (BankOperation.Movement) operation, con);
             } else if(operation instanceof BankOperation.Transfer) {
-                recoverTransferOperation(recovered_accounts, (BankOperation.Transfer) operation, con);
+                stmt_sucess = recoverTransferOperation(recovered_accounts, (BankOperation.Transfer) operation, con);
+            }
+            if(!stmt_sucess){
+                System.out.print("Recovery failed");
+                break;
             }
         }
 
@@ -77,14 +80,15 @@ public class BankImpl implements Bank, Serializable {
      * @param co - operation to be applied
      * @param con - connection to be used for the transaction
      */
-    private void recoverCreateAccountOperation(Set<String> recovered_accounts, BankOperation.Create co, Connection con){
+    private boolean recoverCreateAccountOperation(Set<String> recovered_accounts, BankOperation.Create co, Connection con){
+        boolean recover = true;
         //Only recovers (creates) the account if it wasn't already recovered
         if(!recovered_accounts.contains(co.getAccount())){
             recovered_accounts.add(co.getAccount());
-            database.recoverAccount(Integer.parseInt(co.getAccount()), 0, con);
+            recover = recover && database.recoverAccount(Integer.parseInt(co.getAccount()), 0, con);
         }
         //Logs the create operation with the given id
-        database.logNewAccount(co.getId(), Integer.parseInt(co.getAccount()), 0, con);
+        return recover && database.logNewAccount(co.getId(), Integer.parseInt(co.getAccount()), 0, con);
     }
 
     /**
@@ -93,19 +97,20 @@ public class BankImpl implements Bank, Serializable {
      * @param mo - operation to be applied
      * @param con - connection to be used for the transaction
      */
-    private void recoverMovementOperation(Set<String> recovered_accounts, BankOperation.Movement mo, Connection con){
+    private boolean recoverMovementOperation(Set<String> recovered_accounts, BankOperation.Movement mo, Connection con){
+        boolean recover = true;
         //Only recovers (creates) the account if it wasn't already recovered
         if(!recovered_accounts.contains(mo.getAccount())){
             if(!database.hasAccount(Integer.parseInt(mo.getAccount())))
                 //If the account doesn't exist, creates it with its current balance
-                database.recoverAccount(Integer.parseInt(mo.getAccount()), mo.getFinalBalance(), con);
+                recover = recover && database.recoverAccount(Integer.parseInt(mo.getAccount()), mo.getFinalBalance(), con);
             else
                 //If the account already exists, updates it's balance
-                database.updateBalance(Integer.parseInt(mo.getAccount()), mo.getFinalBalance(), con);
+                recover = recover && database.updateBalance(Integer.parseInt(mo.getAccount()), mo.getFinalBalance(), con);
             recovered_accounts.add(mo.getAccount());
         }
         //Logs the movement operation
-        database.recoverMovement(mo.getId(), mo.getAmount(), Integer.parseInt(mo.getAccount()), mo.getFinalBalance(), con);
+        return recover && database.recoverMovement(mo.getId(), mo.getAmount(), Integer.parseInt(mo.getAccount()), mo.getFinalBalance(), con);
     }
 
     /**
@@ -114,28 +119,29 @@ public class BankImpl implements Bank, Serializable {
      * @param to - operation to be applied
      * @param con - connection to be used for the transaction
      */
-    private void recoverTransferOperation(Set<String> recovered_accounts, BankOperation.Transfer to, Connection con){
+    private boolean recoverTransferOperation(Set<String> recovered_accounts, BankOperation.Transfer to, Connection con){
+        boolean recover = true;
         boolean from_recovered = recovered_accounts.contains(to.getAccountFrom());
         boolean to_recovered = recovered_accounts.contains(to.getAccountTo());
 
         //For each transfer participating account, recovers using the same logic used in the recoverMovementOperation
         if(!from_recovered){
             if(!database.hasAccount(Integer.parseInt(to.getAccountFrom())))
-                database.recoverAccount(Integer.parseInt(to.getAccountFrom()), to.getFinalBalanceFrom(), con);
+                recover = recover && database.recoverAccount(Integer.parseInt(to.getAccountFrom()), to.getFinalBalanceFrom(), con);
             else
-                database.updateBalance(Integer.parseInt(to.getAccountFrom()), to.getFinalBalanceFrom(), con);
+                recover = recover && database.updateBalance(Integer.parseInt(to.getAccountFrom()), to.getFinalBalanceFrom(), con);
             recovered_accounts.add(to.getAccountFrom());
         }
         if(!to_recovered) {
             if(!database.hasAccount(Integer.parseInt(to.getAccountTo())))
-                database.recoverAccount(Integer.parseInt(to.getAccountTo()), to.getFinalBalanceTo(), con);
+                recover = recover && database.recoverAccount(Integer.parseInt(to.getAccountTo()), to.getFinalBalanceTo(), con);
             else
-                database.updateBalance(Integer.parseInt(to.getAccountTo()), to.getFinalBalanceTo(), con);
+                recover = recover && database.updateBalance(Integer.parseInt(to.getAccountTo()), to.getFinalBalanceTo(), con);
             recovered_accounts.add(to.getAccountTo());
         }
 
         //Logs the transfer operation
-        database.recoverTransfer(to.getId(), to.getAmount(), Integer.parseInt(to.getAccountFrom()),
+        return recover && database.recoverTransfer(to.getId(), to.getAmount(), Integer.parseInt(to.getAccountFrom()),
                 Integer.parseInt(to.getAccountTo()), to.getFinalBalanceFrom(), to.getFinalBalanceTo(), con);
     }
 

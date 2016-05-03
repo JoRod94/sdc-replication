@@ -4,6 +4,7 @@ import java.io.File;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.locks.ReentrantLock;
 
 import bank.*;
 import org.apache.derby.jdbc.EmbeddedDataSource;
@@ -16,6 +17,8 @@ public class DataAccess {
 
     public enum OP_TYPES {MOVEMENT, TRANSFER, CREATE};
     private int currentAccountId, currentOperationId;
+    private static ReentrantLock accountLock = new ReentrantLock();
+    private static ReentrantLock operationLock = new ReentrantLock();
     private CacheManager<Account> cache;
 
     /**
@@ -118,7 +121,11 @@ public class DataAccess {
             con.setAutoCommit(false);
             con.setTransactionIsolation(Connection.TRANSACTION_READ_UNCOMMITTED);
         } catch (SQLException e) {
-            e.printStackTrace();
+            try {
+                con.rollback();
+            } catch (SQLException e1) {
+                e1.printStackTrace();
+            }
         }
     }
 
@@ -132,7 +139,11 @@ public class DataAccess {
             con.setAutoCommit(true);
             con.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
         } catch (SQLException e) {
-            e.printStackTrace();
+            try {
+                con.rollback();
+            } catch (SQLException e1) {
+                e1.printStackTrace();
+            }
         }
     }
 
@@ -213,7 +224,7 @@ public class DataAccess {
     }
 
     /**
-     * Make movement in normal execution mode (logs the movement - operations table) and updates the account balance - accounts table)
+     * Make movement in normal execution mode (logs the movement - operations table - and updates the account balance - accounts table)
      * @param mv_amount movement amount
      * @param account_id account where the movement will be executed
      * @param final_balance new account balance to be updated
@@ -223,9 +234,12 @@ public class DataAccess {
         int generated_id = 0;
 
         try {
+            operationLock.lock();
             executeMovement(generated_id = currentOperationId++, mv_amount, account_id, final_balance, rawDataSource.getConnection());
         } catch (SQLException e) {
             e.printStackTrace();
+        } finally {
+            operationLock.unlock();
         }
 
         updateBalance(account_id, final_balance);
@@ -233,19 +247,38 @@ public class DataAccess {
         return generated_id;
     }
 
-
-    public void recoverMovement(int op_id, int mv_amount, int account_id, int final_balance, Connection con){
+    /**
+     * Make movement in recovery execution mode(logs de movement with given id - operations table)
+     * @param op_id operation id to be inserted in the log
+     * @param mv_amount movement amount
+     * @param account_id account where the movement will be executed
+     * @param final_balance account balance at the execution of the movement
+     * @param con database connection to be used
+     */
+    public boolean recoverMovement(int op_id, int mv_amount, int account_id, int final_balance, Connection con){
         try {
             executeMovement(op_id, mv_amount, account_id, final_balance, con);
         } catch (SQLException e) {
             try {
                 con.rollback();
+                return false;
             } catch (SQLException e1) {
                 e1.printStackTrace();
+                return false;
             }
         }
+        return true;
     }
 
+    /**
+     * Execute movement statement with given parameters
+     * @param op_id logged operation id
+     * @param mv_amount logged movement amount
+     * @param account_id logged account_id
+     * @param final_balance logged final balance
+     * @param con connection to be used
+     * @throws SQLException
+     */
     public void executeMovement(int op_id, int mv_amount, int account_id, int final_balance, Connection con) throws SQLException {
         PreparedStatement stmt = con.prepareStatement(
                 "insert into OPERATIONS (OP_ID, OP_TYPE, MV_AMOUNT, FROM_ACCOUNT_ID, FROM_CURRENT_BALANCE, TIMESTAMP) " +
@@ -261,27 +294,26 @@ public class DataAccess {
         stmt.close();
     }
 
-    public void recoverTransfer(int op_id, int tr_amount, int from_account, int to_account, int from_final_balance,
-                               int to_final_balance, Connection con){
-        try {
-            executeTransfer(op_id, tr_amount, from_account, to_account, from_final_balance, to_final_balance, con);
-        } catch (SQLException e) {
-            try {
-                con.rollback();
-            } catch (SQLException e1) {
-                e1.printStackTrace();
-            }
-        }
-    }
-
+    /**
+     * Make transfer in normal execution mode (logs the transfer - operations table - and updates the accounts balance - accounts table)
+     * @param tr_amount transfer amount
+     * @param from_account account id to withdraw
+     * @param to_account account id to deposit the money
+     * @param from_final_balance withdrawn account final balance
+     * @param to_final_balance deposited account final balance
+     * @return inserted operation id
+     */
     public int makeTransfer(int tr_amount, int from_account, int to_account, int from_final_balance, int to_final_balance) {
         int generated_id = 0;
 
         try {
+            operationLock.lock();
             executeTransfer(generated_id = currentOperationId++, tr_amount, from_account,
                     to_account, from_final_balance, to_final_balance, rawDataSource.getConnection());
         } catch (SQLException e) {
             e.printStackTrace();
+        } finally {
+            operationLock.unlock();
         }
 
         updateBalance(from_account, from_final_balance);
@@ -290,6 +322,43 @@ public class DataAccess {
         return generated_id;
     }
 
+    /**
+     * Make transfer in recovery execution mode(logs de transfer with given id - operations table)
+     * @param op_id operation id to be inserted in the log
+     * @param tr_amount transfer amount
+     * @param from_account account id where the money was withdrawn
+     * @param to_account account id where the money was deposited
+     * @param from_final_balance withdrawn account final balance
+     * @param to_final_balance deposited account final balance
+     * @param con connection to be used
+     */
+    public boolean recoverTransfer(int op_id, int tr_amount, int from_account, int to_account, int from_final_balance,
+                               int to_final_balance, Connection con){
+        try {
+            executeTransfer(op_id, tr_amount, from_account, to_account, from_final_balance, to_final_balance, con);
+        } catch (SQLException e) {
+            try {
+                con.rollback();
+                return false;
+            } catch (SQLException e1) {
+                e1.printStackTrace();
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Execute transfer statement with given parameters
+     * @param op_id logged operation id
+     * @param tr_amount logged transfer amount
+     * @param from_account logged withdrawn account
+     * @param to_account logger deposited account
+     * @param from_final_balance logged withdrawn account final balance
+     * @param to_final_balance logged deposited account final balance
+     * @param con connection to be used
+     * @throws SQLException
+     */
     public void executeTransfer(int op_id, int tr_amount, int from_account, int to_account, int from_final_balance,
                                 int to_final_balance, Connection con) throws SQLException {
 
@@ -309,7 +378,14 @@ public class DataAccess {
         stmt.close();
     }
 
-    public void logNewAccount(int op_id, int account_id, int current_balance, Connection con){
+    /**
+     * Log account creation in the operations table (recovery mode)
+     * @param op_id logged operation id
+     * @param account_id logged account id
+     * @param current_balance logged balance
+     * @param con connection to be used
+     */
+    public boolean logNewAccount(int op_id, int account_id, int current_balance, Connection con){
         try {
             PreparedStatement stmt = con.prepareStatement(
                     "insert into OPERATIONS (OP_ID, OP_TYPE, FROM_ACCOUNT_ID, FROM_CURRENT_BALANCE, TIMESTAMP) " +
@@ -324,12 +400,21 @@ public class DataAccess {
         } catch (SQLException e) {
             try {
                 con.rollback();
+                return false;
             } catch (SQLException e1) {
                 e1.printStackTrace();
+                return false;
             }
         }
+        return true;
     }
 
+    /**
+     * Log account creation in the operations table
+     * @param op_id logged operation id
+     * @param account_id logged account id
+     * @param current_balance logged balance
+     */
     public void logNewAccount(int op_id, int account_id, int current_balance){
         try {
             PreparedStatement stmt = rawDataSource.getConnection().prepareStatement(
@@ -347,28 +432,47 @@ public class DataAccess {
         }
     }
 
-    public void recoverAccount(int account_id, int balance, Connection con){
+    /**
+     * Make new account in recovery execution mode(logs de creation with given id - accounts table)
+     * @param account_id
+     * @param balance
+     * @param con
+     */
+    public boolean recoverAccount(int account_id, int balance, Connection con){
         try {
             executeNewAccount(account_id, balance, con);
         } catch (SQLException e) {
             try {
                 con.rollback();
+                return false;
             } catch (SQLException e1) {
                 e1.printStackTrace();
+                return false;
             }
         }
         cache.add(new Account(account_id, balance));
+        return true;
     }
 
+    /**
+     * Make new account in normal execution mode(logs the new account - accounts table - and logs the operation - operations table)
+     * @param balance initial account balance
+     * @return generated account id
+     */
     public int makeNewAccount(int balance){
         int generated_id = 0;
 
         try {
+            accountLock.lock();
             executeNewAccount(generated_id = currentAccountId++, balance, rawDataSource.getConnection());
+            accountLock.unlock();
 
             cache.add(new Account(generated_id, balance));
+
+            operationLock.lock();
             logNewAccount(currentOperationId, generated_id, balance);
             currentOperationId++;
+            operationLock.unlock();
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -376,6 +480,13 @@ public class DataAccess {
         return generated_id;
     }
 
+    /**
+     * Execute new account creation with given parameters
+     * @param account_id logged account id
+     * @param balance logged initial account balance
+     * @param con connection to be used
+     * @throws SQLException
+     */
     public void executeNewAccount(int account_id, int balance, Connection con) throws SQLException {
         PreparedStatement stmt = con.prepareStatement(
                 "insert into ACCOUNTS (ACCOUNT_ID, BALANCE, TIMESTAMP) values (?,?,?)");
@@ -387,14 +498,36 @@ public class DataAccess {
         stmt.close();
     }
 
+    /**
+     * Update balance in account entry at the accounts table and update balance in the cache
+     * @param account_id account id to update
+     * @param final_amount amount to update
+     */
     public void updateBalance(int account_id, int final_amount){
         dbUpdate("update ACCOUNTS set BALANCE = "+ final_amount + " where ACCOUNT_ID = " + account_id);
         cache.add(new Account(account_id, final_amount));
     }
 
-    public void updateBalance(int account_id, int final_amount, Connection con){
-        dbUpdate("update ACCOUNTS set BALANCE = "+ final_amount + " where ACCOUNT_ID = " + account_id, con);
-        cache.add(new Account(account_id, final_amount));
+    /**
+     * Update balance in account entry at the accounts table and update balance in the cache (recovery mode)
+     * @param account_id account id to update
+     * @param final_amount amount to update
+     * @param con connection to be used
+     */
+    public boolean updateBalance(int account_id, int final_amount, Connection con){
+        try {
+            tryDbUpdate("update ACCOUNTS set BALANCE = "+ final_amount + " where ACCOUNT_ID = " + account_id, con);
+            cache.add(new Account(account_id, final_amount));
+        } catch (SQLException e) {
+            try {
+                con.rollback();
+                return false;
+            } catch (SQLException e1) {
+                e1.printStackTrace();
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
@@ -498,7 +631,6 @@ public class DataAccess {
      * @param n max number of operations to return
      * @return string containing information about the last n operations (id, type, amount, balance, timestamp)
      */
-    //TODO: Complete with transfer and create operations information
     public String getLastAccountOperations(int account_id, int n) {
         StringBuilder a = new StringBuilder();
         try (
@@ -508,11 +640,18 @@ public class DataAccess {
                                 "DESC FETCH FIRST "+n+" ROWS ONLY")) {
 
             while (res.next()) {
-                a.append("Id: " + res.getString("OP_ID"))
-                        .append("\tType: " + OP_TYPES.values()[res.getInt("OP_TYPE")-1].name())
-                        .append("\tAmount: " + res.getString("MV_AMOUNT"))
-                        .append("\tBalance: " + res.getString("FROM_CURRENT_BALANCE"))
-                        .append("\tTimestamp: " + res.getString("TIMESTAMP").toString()+"\n");
+                int type = res.getInt("OP_TYPE");
+                switch(type){
+                    case 1:
+                        getMovementLog(a, res);
+                        break;
+                    case 2:
+                        getTransferLog(a, res);
+                        break;
+                    case 3:
+                        getCreateAccountLog(a, res);
+                        break;
+                }
             }
         } catch (SQLException e) {
             e.printStackTrace();
@@ -526,6 +665,7 @@ public class DataAccess {
      * @return last account id
      */
     private int getCurrentAccountId() {
+        accountLock.lock();
         int nmr = 1;
         try (
                 Statement s = rawDataSource.getConnection().createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
@@ -538,6 +678,8 @@ public class DataAccess {
         } catch (SQLException ex) {
             return nmr;
         }
+        accountLock.unlock();
+
         return nmr;
     }
 
@@ -547,6 +689,7 @@ public class DataAccess {
      */
     public int getCurrentOperationId(){
         int nmr = 1;
+        operationLock.lock();
         try (
                 Statement s = rawDataSource.getConnection().createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
                 ResultSet res = s.executeQuery(
@@ -558,6 +701,8 @@ public class DataAccess {
         } catch (SQLException ex) {
             return nmr;
         }
+
+        operationLock.unlock();
         return nmr;
     }
 
