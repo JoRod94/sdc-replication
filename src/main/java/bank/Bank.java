@@ -46,6 +46,5 @@ public interface Bank {
      * @param n - number of movements
      * @return - list of movements
      */
-    // TODO
     String latest(String account, int n);
 }
