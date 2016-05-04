@@ -3,6 +3,7 @@ package client;
 import bank.Bank;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
@@ -18,11 +19,12 @@ import java.util.function.Function;
  */
 public class Client implements Runnable {
     private static int NR_REQUESTS = 250;
-    private static int NR_THREADS = 32;
+    private static int NR_THREADS = 8;
     private static int NR_SEEDS = 50;
     private static ReadWriteLock lock = new ReentrantReadWriteLock();
     private static CountDownLatch startSignal = new CountDownLatch(1);
     private static CountDownLatch doneSignal = new CountDownLatch(NR_THREADS);
+    private ArrayList<String> accs = new ArrayList<>();
 
     private Bank bank;
     private Map<String, Integer> accounts;
@@ -55,6 +57,8 @@ public class Client implements Runnable {
 
     private void createAccount() {
         String newId = bank.create();
+        System.out.println(newId);
+        accs.add(newId);
         writeOp((a) -> a.put(newId, 0));
     }
 
@@ -62,21 +66,56 @@ public class Client implements Runnable {
         return bank.balance(getRandomAccount());
     }
 
+    private String requestLogs() {
+        String account = getRandomAccount();
+        int n = new Random().nextInt(10) + 1; // interval: [1, 10]
+        return bank.latest(account, n);
+    }
+
     private void makeMovement() {
         int amount = new Random().nextInt(1001); // Random#nextInt is exclusive for the outer bound
         String account = getRandomAccount();
-        if( bank.movement(account, amount) ) {
+        if(bank.movement(account, amount)) {
             try {
-                writeOp((a) -> {
-                    Integer i = a.get(account);
-                    a.put( account, i + amount);
-                });
+                writeOp((a) -> a.put(account, a.get(account) + amount));
             } catch(NullPointerException e) {
-                if(accounts.get(account) == null)
-                    System.out.println("ACCOUNT DOES NOT EXIST");
-                System.out.println(account + "::" + readOp( (a) -> accounts.size()));
+                String next = Integer.toString(Integer.valueOf(account) + 1);
+                String prev = Integer.toString(Integer.valueOf(account) - 1);
+                String next2 = Integer.toString(Integer.valueOf(account) + 2);
+                String prev2 = Integer.toString(Integer.valueOf(account) - 2);
+                System.out.println(new StringBuilder()
+                        .append("FOUND INEXISTING ID: ").append(account)
+                        .append("\nDIAGNOSING...")
+                        .append("\nSIZE: ").append(accounts.size())
+                        .append("\n ").append(prev).append(" EXISTS? ").append(accounts.get(prev))
+                        .append("\n ").append(prev2).append(" EXISTS? ").append(accounts.get(prev2))
+                        .append("\n ").append(account).append(" EXISTS? ").append(accounts.get(account))
+                        .append("\n ").append(next).append(" EXISTS? ").append(accounts.get(next))
+                        .append("\n ").append(next2).append(" EXISTS? ").append(accounts.get(next2))
+                        .append("\n IN RECEIVED ACCOUNTS? ").append(accs.contains(account))
+                        .toString());
+
                 lock.writeLock().unlock();
             }
+        }
+    }
+
+    private void makeTransfer() {
+        int amount = new Random().nextInt(1001); // [0, 1000]
+        final String origin = getRandomAccount();
+        String dest;
+
+        do {
+            dest = getRandomAccount();
+        } while(dest == origin); // ensures we are making a transfer between diff accounts
+
+        final String destination = dest; // we need this to be in a final variable
+
+        if(bank.transfer(origin, destination, amount)) {
+            writeOp((a) -> {
+                a.put(origin, a.get(origin) - amount);
+                a.put(destination, a.get(destination) + amount);
+            });
         }
     }
 
@@ -99,6 +138,12 @@ public class Client implements Runnable {
                     break;
                 case 3: // MOVEMENT
                     makeMovement();
+                    break;
+                case 4: // TRANSFER
+                    makeTransfer();
+                    break;
+                case 5: // LOG MOVEMENTS
+                    requestLogs();
                     break;
             }
         }
