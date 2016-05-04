@@ -10,6 +10,7 @@ import communication.Invocation;
 import server.Server;
 
 import java.io.IOException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -20,7 +21,7 @@ import java.util.concurrent.locks.ReentrantLock;
  */
 public class BankStub implements Bank, MessageListener {
     private String stubId;
-    private int msgId;
+    private AtomicInteger msgId = new AtomicInteger(0);
     private DataSession data;
     private Service service;
 
@@ -33,7 +34,6 @@ public class BankStub implements Bank, MessageListener {
 
     public BankStub() throws IOException {
         stubId = (new java.rmi.dgc.VMID()).toString();
-        msgId = 0;
         setUpConnection();
     }
 
@@ -79,16 +79,19 @@ public class BankStub implements Bank, MessageListener {
 
     @Override
     public Object onMessage(Message message) {
+        replyLock.lock();
+
         Packet received = new Packet(message.getPayload());
 
-        replyLock.lock();
         try {
             Object content = received.getContent();
 
 
             // If the received message is a reply and the id is the client's...
             // ...continue running the code currently waiting for a reply
-            if(!(content instanceof Invocation) && received.getId().equals(buildPacketId())) {
+            if((!(content instanceof Invocation)) && received.getId().equals(buildPacketId())) {
+                System.out.println(received.getId().split("@")[0] + " AND IM WAITING FOR " + msgId.get());
+                msgId.incrementAndGet();
                 reply = content;
                 replyCondition.signal();
             }
@@ -106,7 +109,7 @@ public class BankStub implements Bank, MessageListener {
      * @throws IOException
      */
     private void sendRequest(String request, Object[] args) throws IOException {
-        msgId++;
+        //msgId++;
         Invocation i = new Invocation(request, args);
         Packet p = new Packet(buildPacketId(), i);
 
@@ -123,7 +126,7 @@ public class BankStub implements Bank, MessageListener {
      * @return expected packet unique id
      */
     private String buildPacketId() {
-        return msgId + "@" + stubId;
+        return msgId.get() + "@" + stubId;
     }
 
     /**

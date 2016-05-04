@@ -147,7 +147,9 @@ public class BankImpl implements Bank, Serializable {
 
     @Override
     public String create() {
-        return Integer.toString(database.makeNewAccount(0));
+        String acc = Integer.toString(database.makeNewAccount(0));
+        //System.out.println(acc);
+        return acc;
     }
 
     @Override
