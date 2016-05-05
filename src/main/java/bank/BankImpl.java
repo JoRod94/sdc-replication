@@ -36,7 +36,7 @@ public class BankImpl implements Bank, Serializable {
      * @param op_list - pending operations to be applied
      */
     private void doRecovery(List<BankOperation> op_list){
-        boolean stmt_sucess = true;
+        boolean stmt_success = true;
 
         //Stores already recovered accounts. The operation list is recovered backwards to avoid re-writing
         //data related to the same object (account)
@@ -50,14 +50,14 @@ public class BankImpl implements Bank, Serializable {
         //Recovers each operation individually
         for(BankOperation operation : op_list){
             if(operation instanceof BankOperation.Create){
-                stmt_sucess = recoverCreateAccountOperation(recovered_accounts, (BankOperation.Create) operation, con);
+                stmt_success = recoverCreateAccountOperation(recovered_accounts, (BankOperation.Create) operation, con);
             } else if(operation instanceof BankOperation.Movement) {
-                stmt_sucess = recoverMovementOperation(recovered_accounts, (BankOperation.Movement) operation, con);
+                stmt_success = recoverMovementOperation(recovered_accounts, (BankOperation.Movement) operation, con);
             } else if(operation instanceof BankOperation.Transfer) {
-                stmt_sucess = recoverTransferOperation(recovered_accounts, (BankOperation.Transfer) operation, con);
+                stmt_success = recoverTransferOperation(recovered_accounts, (BankOperation.Transfer) operation, con);
             }
 
-            if(!stmt_sucess){
+            if(!stmt_success){
                 System.out.print("Recovery failed");
                 break;
             }
