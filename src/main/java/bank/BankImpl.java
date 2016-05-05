@@ -101,7 +101,7 @@ public class BankImpl implements Bank, Serializable {
 
         //Only recovers (creates) the account if it wasn't already recovered
         if(!recovered_accounts.contains(mo.getAccount())){
-            if(!database.hasAccount(Integer.parseInt(mo.getAccount())))
+            if(!database.hasAccount(Integer.parseInt(mo.getAccount()), con))
                 //If the account doesn't exist, creates it with its current balance
                 recover = recover && database.recoverAccount(Integer.parseInt(mo.getAccount()), mo.getFinalBalance(), con);
             else
@@ -127,14 +127,14 @@ public class BankImpl implements Bank, Serializable {
 
         //For each transfer participating account, recovers using the same logic used in the recoverMovementOperation
         if(!from_recovered){
-            if(!database.hasAccount(Integer.parseInt(to.getAccountFrom())))
+            if(!database.hasAccount(Integer.parseInt(to.getAccountFrom()), con))
                 recover = recover && database.recoverAccount(Integer.parseInt(to.getAccountFrom()), to.getFinalBalanceFrom(), con);
             else
                 recover = recover && database.updateBalance(Integer.parseInt(to.getAccountFrom()), to.getFinalBalanceFrom(), con);
             recovered_accounts.add(to.getAccountFrom());
         }
         if(!to_recovered) {
-            if(!database.hasAccount(Integer.parseInt(to.getAccountTo())))
+            if(!database.hasAccount(Integer.parseInt(to.getAccountTo()), con))
                 recover = recover && database.recoverAccount(Integer.parseInt(to.getAccountTo()), to.getFinalBalanceTo(), con);
             else
                 recover = recover && database.updateBalance(Integer.parseInt(to.getAccountTo()), to.getFinalBalanceTo(), con);
