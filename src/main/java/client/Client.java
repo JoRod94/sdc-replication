@@ -3,7 +3,6 @@ package client;
 import bank.Bank;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
@@ -18,13 +17,12 @@ import java.util.function.Function;
  * Created by frm on 29/04/16.
  */
 public class Client implements Runnable {
-    private static int NR_REQUESTS = 250;
-    private static int NR_THREADS = 8;
+    private static int NR_REQUESTS = 500;
+    private static int NR_THREADS = 32;
     private static int NR_SEEDS = 50;
     private static ReadWriteLock lock = new ReentrantReadWriteLock();
     private static CountDownLatch startSignal = new CountDownLatch(1);
     private static CountDownLatch doneSignal = new CountDownLatch(NR_THREADS);
-    private ArrayList<String> accs = new ArrayList<>();
 
     private Bank bank;
     private Map<String, Integer> accounts;
@@ -57,8 +55,6 @@ public class Client implements Runnable {
 
     private void createAccount() {
         String newId = bank.create();
-        System.out.println(newId);
-        accs.add(newId);
         writeOp((a) -> a.put(newId, 0));
     }
 
@@ -79,20 +75,12 @@ public class Client implements Runnable {
             try {
                 writeOp((a) -> a.put(account, a.get(account) + amount));
             } catch(NullPointerException e) {
-                String next = Integer.toString(Integer.valueOf(account) + 1);
-                String prev = Integer.toString(Integer.valueOf(account) - 1);
-                String next2 = Integer.toString(Integer.valueOf(account) + 2);
-                String prev2 = Integer.toString(Integer.valueOf(account) - 2);
                 System.out.println(new StringBuilder()
                         .append("FOUND INEXISTING ID: ").append(account)
                         .append("\nDIAGNOSING...")
                         .append("\nSIZE: ").append(accounts.size())
-                        .append("\n ").append(prev).append(" EXISTS? ").append(accounts.get(prev))
-                        .append("\n ").append(prev2).append(" EXISTS? ").append(accounts.get(prev2))
                         .append("\n ").append(account).append(" EXISTS? ").append(accounts.get(account))
-                        .append("\n ").append(next).append(" EXISTS? ").append(accounts.get(next))
-                        .append("\n ").append(next2).append(" EXISTS? ").append(accounts.get(next2))
-                        .append("\n IN RECEIVED ACCOUNTS? ").append(accs.contains(account))
+                        .append("\n TOTAL ORDER MULTICAST ERROR. IGNORING...")
                         .toString());
 
                 lock.writeLock().unlock();
