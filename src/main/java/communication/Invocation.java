@@ -7,9 +7,9 @@ import java.io.*;
  * Class representing the remote invocation to be processed by the server
  */
 public class Invocation implements Serializable {
-    // When making an RPC using the invocation class
+    // When making an RPC using this class,
     // use these variables to ensure the methods are supported.
-    // Also allows for code compatibility if the underlying method changes
+    // Allows for code compatibility if the underlying method changes
     public static final String CREATE   = "create";
     public static final String BALANCE  = "balance";
     public static final String MOVEMENT = "movement";

@@ -147,7 +147,6 @@ public class Client implements Runnable {
                     break;
             }
         }
-
     }
 
     @Override

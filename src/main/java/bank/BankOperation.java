@@ -87,7 +87,6 @@ public abstract class BankOperation implements Serializable{
         public int getFinalBalance() {
             return finalBalance;
         }
-
     }
 
     /**
@@ -153,5 +152,4 @@ public abstract class BankOperation implements Serializable{
             return finalBalanceTo;
         }
     }
-
 }

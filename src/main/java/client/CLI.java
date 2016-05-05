@@ -36,7 +36,6 @@ public class CLI {
         }
     }
 
-    // TODO: Decidir se é preciso meter mais mensagens de controlo de erros
     /**
      * Interprets a given command and its arguments, invoking the corresponding stub method
      * @param command - list composed of the actual command (first element) and its arguments

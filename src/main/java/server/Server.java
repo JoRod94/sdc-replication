@@ -3,9 +3,11 @@ package server;
 import bank.Bank;
 import bank.BankImpl;
 import bank.BankOperation;
+
 import communication.Invocation;
 import communication.Packet;
 import data.DataAccess;
+
 import net.sf.jgcs.*;
 import net.sf.jgcs.annotation.PointToPoint;
 import net.sf.jgcs.jgroups.JGroupsGroup;
@@ -15,7 +17,6 @@ import net.sf.jgcs.jgroups.JGroupsService;
 import java.io.IOException;
 import java.net.SocketAddress;
 import java.sql.SQLException;
-import java.sql.SQLSyntaxErrorException;
 import java.util.*;
 
 /**
@@ -64,8 +65,6 @@ public class Server implements MessageListener{
         // If we are not, it doesn't really matter the value of discard
         this.discard = recover;
 
-        System.out.println("RECOVER: "+recover);
-
         // We only create the bank with a brand new database when not recovering
         // Otherwise the bank will be created based on a status update
         if(!recover)
@@ -82,6 +81,7 @@ public class Server implements MessageListener{
     public void setUpConnection() throws GroupException {
         ProtocolFactory pf = new JGroupsProtocolFactory();
         GroupConfiguration gc = new JGroupsGroup(GROUP_NAME);
+
         service = new JGroupsService();
         Protocol p = pf.createProtocol();
         ControlSession control = p.openControlSession(gc);
@@ -110,7 +110,6 @@ public class Server implements MessageListener{
      * @throws IOException
      * @throws ClassNotFoundException
      */
-    // TODO: Change this to the correct class
     private void recover(DataAccess da, ArrayList<BankOperation> transactions) throws IOException, ClassNotFoundException, SQLException {
         this.bank = new BankImpl(da, transactions);
 
@@ -153,10 +152,6 @@ public class Server implements MessageListener{
         Packet p = new Packet(m.getPayload());
         Object content = p.getContent();
 
-        System.out.println("INTERPRETING: " + content.toString());
-        System.out.println("MY ID: " + buildPacketId());
-        System.out.println("RECEIVED ID: " + p.getId());
-
         // If we received an expected message
         if(p.getId().equals(buildPacketId())) {
             // It's either our own first message or a status update
@@ -171,9 +166,6 @@ public class Server implements MessageListener{
                 // correct reply also means we will ignore repeated replies from
                 // multiple servers
                 msgId++;
-                System.out.println("MSG ID " + msgId);
-                System.out.println("STATUS UPDATE");
-                // TODO: cast to correct class
                 recover(da, (ArrayList<BankOperation>) content);
             }
         } else {
@@ -204,7 +196,7 @@ public class Server implements MessageListener{
                 reply = bank.movement((String)args[0], (int)args[1]);
                 break;
             case Invocation.STATE:
-                System.out.println("RECEIVED STATE REQUEST");
+                System.out.println("NEW SERVER JOINED. RECEIVED STATE REQUEST");
                 reply = getOperationsAfter((int) args[0]);
                 break;
             case Invocation.TRANSFER:
@@ -219,8 +211,6 @@ public class Server implements MessageListener{
 
         return reply;
     }
-
-
 
     /**
      * Handles a message when not in recovery
@@ -260,7 +250,6 @@ public class Server implements MessageListener{
      * @throws IOException
      */
     public void sendRequest(String request, Object... args) throws IOException {
-        System.out.println("SENDING: " + request);
         Invocation i = new Invocation(request, args);
         Packet p = new Packet(buildPacketId(), i);
 

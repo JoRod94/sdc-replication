@@ -2,11 +2,9 @@ package bank;
 
 import data.DataAccess;
 
-import java.io.IOException;
 import java.io.Serializable;
 import java.sql.Connection;
 import java.util.*;
-import java.util.concurrent.ThreadFactory;
 
 /**
  * Created by joaorodrigues on 14 Apr 16.
@@ -31,17 +29,15 @@ public class BankImpl implements Bank, Serializable {
      */
     public BankImpl(DataAccess dataAccess) {
         database = dataAccess;
-
     }
 
     /**
      * Apply a list of pending operations (executed in recovery mode). If recovery fails (due to database exception), it stops.
      * @param op_list - pending operations to be applied
      */
-    //TODO: Remover prints
     private void doRecovery(List<BankOperation> op_list){
-        System.out.println(op_list);
         boolean stmt_sucess = true;
+
         //Stores already recovered accounts. The operation list is recovered backwards to avoid re-writing
         //data related to the same object (account)
         Set<String> recovered_accounts = new HashSet<>();
@@ -60,6 +56,7 @@ public class BankImpl implements Bank, Serializable {
             } else if(operation instanceof BankOperation.Transfer) {
                 stmt_sucess = recoverTransferOperation(recovered_accounts, (BankOperation.Transfer) operation, con);
             }
+
             if(!stmt_sucess){
                 System.out.print("Recovery failed");
                 break;
@@ -82,11 +79,13 @@ public class BankImpl implements Bank, Serializable {
      */
     private boolean recoverCreateAccountOperation(Set<String> recovered_accounts, BankOperation.Create co, Connection con){
         boolean recover = true;
+
         //Only recovers (creates) the account if it wasn't already recovered
         if(!recovered_accounts.contains(co.getAccount())){
             recovered_accounts.add(co.getAccount());
             recover = recover && database.recoverAccount(Integer.parseInt(co.getAccount()), 0, con);
         }
+
         //Logs the create operation with the given id
         return recover && database.logNewAccount(co.getId(), Integer.parseInt(co.getAccount()), 0, con);
     }
@@ -99,6 +98,7 @@ public class BankImpl implements Bank, Serializable {
      */
     private boolean recoverMovementOperation(Set<String> recovered_accounts, BankOperation.Movement mo, Connection con){
         boolean recover = true;
+
         //Only recovers (creates) the account if it wasn't already recovered
         if(!recovered_accounts.contains(mo.getAccount())){
             if(!database.hasAccount(Integer.parseInt(mo.getAccount())))
@@ -109,6 +109,7 @@ public class BankImpl implements Bank, Serializable {
                 recover = recover && database.updateBalance(Integer.parseInt(mo.getAccount()), mo.getFinalBalance(), con);
             recovered_accounts.add(mo.getAccount());
         }
+
         //Logs the movement operation
         return recover && database.recoverMovement(mo.getId(), mo.getAmount(), Integer.parseInt(mo.getAccount()), mo.getFinalBalance(), con);
     }
@@ -147,9 +148,7 @@ public class BankImpl implements Bank, Serializable {
 
     @Override
     public String create() {
-        String acc = Integer.toString(database.makeNewAccount(0));
-        //System.out.println(acc);
-        return acc;
+        return Integer.toString(database.makeNewAccount(0));
     }
 
     @Override
@@ -178,13 +177,14 @@ public class BankImpl implements Bank, Serializable {
 
         database.makeTransfer(amount, Integer.parseInt(origin), Integer.parseInt(destination), balanceFrom-amount,
                 balanceTo+amount);
+
         return true;
     }
 
     @Override
     public String latest(String account, int n) {
-        if(database.hasAccount(Integer.parseInt(account)))
-            return database.getLastAccountOperations(Integer.parseInt(account), n);
-        else return null;
+        return database.hasAccount(Integer.parseInt(account))
+                ? database.getLastAccountOperations(Integer.parseInt(account), n)
+                : null;
     }
 }

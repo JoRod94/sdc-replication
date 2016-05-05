@@ -406,6 +406,7 @@ public class DataAccess {
                 return false;
             }
         }
+
         return true;
     }
 
@@ -450,6 +451,7 @@ public class DataAccess {
                 return false;
             }
         }
+
         cache.add(new Account(account_id, balance));
         return true;
     }
@@ -575,6 +577,7 @@ public class DataAccess {
                 }
             }
         }
+
         return a.toString();
     }
 
@@ -622,6 +625,7 @@ public class DataAccess {
         } catch (SQLException e) {
             e.printStackTrace();
         }
+
         return a.toString();
     }
 
@@ -678,8 +682,8 @@ public class DataAccess {
         } catch (SQLException ex) {
             return nmr;
         }
-        accountLock.unlock();
 
+        accountLock.unlock();
         return nmr;
     }
 
@@ -777,6 +781,7 @@ public class DataAccess {
         } catch (SQLException e) {
             e.printStackTrace();
         }
+
         return op_list;
     }
 }
