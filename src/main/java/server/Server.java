@@ -120,6 +120,7 @@ public class Server implements MessageListener{
         }
 
         recover = false;
+        System.out.println("FINISHED RECOVERY");
     }
 
     /**
@@ -128,8 +129,10 @@ public class Server implements MessageListener{
      * @throws InterruptedException
      */
     public void work() throws IOException, InterruptedException {
-        if(recover)
+        if(recover) {
             sendRequest(Invocation.STATE, da.getCurrentOperationId());
+            System.out.println("STATE REQUEST SENT");
+        }
 
         // Waits in a non-blocking manner forever
         while(true){
@@ -198,6 +201,7 @@ public class Server implements MessageListener{
             case Invocation.STATE:
                 System.out.println("NEW SERVER JOINED. RECEIVED STATE REQUEST");
                 reply = getOperationsAfter((int) args[0]);
+                System.out.println("RETRIEVED REQUESTED OPERATIONS");
                 break;
             case Invocation.TRANSFER:
                 reply = bank.transfer( (String) args[0], (String) args[1], (int) args[2]);
@@ -261,7 +265,6 @@ public class Server implements MessageListener{
     private List<BankOperation> getOperationsAfter(int id) {
         return da.getOperationsAfter(id);
     }
-
 
     /**
      * Builds the expected packet unique id.
