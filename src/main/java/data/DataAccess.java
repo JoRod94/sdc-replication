@@ -758,7 +758,7 @@ public class DataAccess {
         try (
                 Statement s = rawDataSource.getConnection().createStatement();
                 ResultSet res = s.executeQuery(
-                        "SELECT * FROM APP.OPERATIONS where OP_ID >= "+n_id+" ORDER BY TIMESTAMP DESC")) {
+                        "SELECT * FROM APP.OPERATIONS where OP_ID >= "+n_id+" ORDER BY OP_ID DESC")) {
 
             while (res.next()) {
                 switch(res.getInt("OP_TYPE")){
