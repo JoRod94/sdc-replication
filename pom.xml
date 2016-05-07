@@ -27,11 +27,6 @@
             <version>0.8.1</version>
         </dependency>
         <dependency>
-            <groupId>net.sf.jgcs</groupId>
-            <artifactId>jgcs</artifactId>
-            <version>0.8.1</version>
-        </dependency>
-        <dependency>
             <groupId>org.apache.derby</groupId>
             <artifactId>derby</artifactId>
             <version>10.12.1.1</version>

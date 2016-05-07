@@ -244,7 +244,7 @@ public class Server implements MessageListener{
     private void reply(Packet p, SocketAddress destination) throws IOException {
         Message m = data.createMessage();
         m.setPayload(p.getBytes());
-        data.multicast(m, service, new PointToPoint(destination));
+        data.multicast(m, service, null, new PointToPoint(destination));
     }
 
     /**
