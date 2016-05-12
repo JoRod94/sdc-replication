@@ -17,8 +17,8 @@ public class DataAccess {
 
     public enum OP_TYPES {MOVEMENT, TRANSFER, CREATE};
     private int currentAccountId, currentOperationId;
-    //private static ReentrantLock accountLock = new ReentrantLock();
-    //private static ReentrantLock operationLock = new ReentrantLock();
+    private static ReentrantLock accountLock = new ReentrantLock();
+    private static ReentrantLock operationLock = new ReentrantLock();
     private CacheManager<Account> cache;
 
     /**
@@ -234,12 +234,12 @@ public class DataAccess {
         int generated_id = 0;
 
         try {
-            //operationLock.lock();
+            operationLock.lock();
             executeMovement(generated_id = currentOperationId++, mv_amount, account_id, final_balance, rawDataSource.getConnection());
         } catch (SQLException e) {
             e.printStackTrace();
         } finally {
-            //operationLock.unlock();
+            operationLock.unlock();
         }
 
         updateBalance(account_id, final_balance);
@@ -307,13 +307,13 @@ public class DataAccess {
         int generated_id = 0;
 
         try {
-            //operationLock.lock();
+            operationLock.lock();
             executeTransfer(generated_id = currentOperationId++, tr_amount, from_account,
                     to_account, from_final_balance, to_final_balance, rawDataSource.getConnection());
         } catch (SQLException e) {
             e.printStackTrace();
         } finally {
-            //operationLock.unlock();
+            operationLock.unlock();
         }
 
         updateBalance(from_account, from_final_balance);
@@ -465,16 +465,16 @@ public class DataAccess {
         int generated_id = 0;
 
         try {
-            //accountLock.lock();
+            accountLock.lock();
             executeNewAccount(generated_id = currentAccountId++, balance, rawDataSource.getConnection());
-            //accountLock.unlock();
+            accountLock.unlock();
 
             cache.add(new Account(generated_id, balance));
 
-            //operationLock.lock();
+            operationLock.lock();
             logNewAccount(currentOperationId, generated_id, balance);
             currentOperationId++;
-            //operationLock.unlock();
+            operationLock.unlock();
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -669,7 +669,7 @@ public class DataAccess {
      * @return last account id
      */
     private int getCurrentAccountId() {
-        //accountLock.lock();
+        accountLock.lock();
         int nmr = 1;
         try (
                 Statement s = rawDataSource.getConnection().createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
@@ -683,7 +683,7 @@ public class DataAccess {
             return nmr;
         }
 
-        //accountLock.unlock();
+        accountLock.unlock();
         return nmr;
     }
 
@@ -693,7 +693,7 @@ public class DataAccess {
      */
     public int getCurrentOperationId(){
         int nmr = 1;
-        //operationLock.lock();
+        operationLock.lock();
         try (
                 Statement s = rawDataSource.getConnection().createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
                 ResultSet res = s.executeQuery(
@@ -706,7 +706,7 @@ public class DataAccess {
             return nmr;
         }
 
-        //operationLock.unlock();
+        operationLock.unlock();
         return nmr;
     }
 
