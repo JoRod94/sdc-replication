@@ -640,7 +640,7 @@ public class DataAccess {
         try (
                 Statement s = rawDataSource.getConnection().createStatement();
                 ResultSet res = s.executeQuery(
-                        "SELECT * FROM OPERATIONS where FROM_ACCOUNT_ID = "+account_id+" ORDER BY TIMESTAMP " +
+                        "SELECT * FROM OPERATIONS where FROM_ACCOUNT_ID = "+account_id+" OR TO_ACCOUNT_ID = "+account_id+" ORDER BY TIMESTAMP " +
                                 "DESC FETCH FIRST "+n+" ROWS ONLY")) {
 
             while (res.next()) {
